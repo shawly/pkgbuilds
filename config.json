@@ -1,4 +1,5 @@
 {
+    "enc_gpg": "key.gpg.enc",
     "pub_gpg": "shawly-keyring/public.gpg",
     "name": "shawly (Github Actions)",
     "email": "github-action@users.noreply.github.com",

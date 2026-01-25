@@ -28,6 +28,8 @@ gpg --full-generate-key
 # Real name: shawly (Github Actions)
 # Email: github-action@users.noreply.github.com
 # Comment: Package signing key
+# Passphrase: <LEAVE EMPTY> (Hit enter twice. The protection is done via openssl below)
+# Note: If you do set a passphrase, you must add it as GPG_KEY_PASSWORD in GitHub Secrets (see step 2).
 
 # List keys to find your key ID
 gpg --list-secret-keys --keyid-format=long
@@ -40,9 +42,9 @@ gpg --armor --export KEY_ID > shawly-keyring/public.gpg
 gpg --armor --export-secret-keys KEY_ID > key.gpg
 
 # Encrypt the private key with a passphrase for GitHub Secrets
-# You can use openssl or your preferred encryption method
-openssl enc -aes-256-cbc -salt -in key.gpg -out key.gpg.enc
-# Enter a strong encryption passphrase and remember it for GitHub Secrets
+# We add -pbkdf2 to fix the deprecation warning and -a to base64 encode it for the workflow
+openssl enc -aes-256-cbc -salt -a -pbkdf2 -in key.gpg -out key.gpg.enc
+# Enter a strong encryption passphrase and remember it for the GPG_FILE_PASSWORD secret
 
 # Clean up the unencrypted private key
 rm key.gpg
@@ -53,8 +55,12 @@ rm key.gpg
 Go to your repository settings on GitHub: Settings → Secrets and variables → Actions
 
 Add the following secrets:
-- **ENCRYPTION_KEY**: The passphrase you used to encrypt key.gpg.enc
-- **REPO_TOKEN** (optional): A GitHub Personal Access Token with repo permissions
+- **GPG_FILE_PASSWORD**: The passphrase you used to encrypt key.gpg.enc
+- **GPG_KEY_PASSWORD** (optional): The passphrase of your GPG key, if you set one.
+- **REPO_TOKEN** (optional): Used only by the automated setup script to manage secrets.
+  - **Type**: Fine-grained Personal Access Token
+  - **Permissions**: Repository permissions → Secrets (Read and Write)
+  - **Note**: You can safely delete this token after the setup workflow completes.
 
 ### 3. Update Repository Configuration
 

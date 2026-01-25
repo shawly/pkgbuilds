@@ -49,11 +49,11 @@ jobs:
         else
           set_output has_token true
         fi
-        if [ -z "${{ secrets.ENCRYPTION_KEY }}" ]; then
+        if [ -z "${{ secrets.GPG_FILE_PASSWORD }}" ]; then
           set_output key $(head /dev/urandom | tr -dc A-Za-z0-9 | head -c16)
           set_output generate true
         else
-          set_output key ${{ secrets.ENCRYPTION_KEY }}
+          set_output key ${{ secrets.GPG_FILE_PASSWORD }}
           if [ ! -f "${{ steps.config.outputs.enc-gpg }}" ]; then
             set_output generate true
           else
@@ -70,8 +70,8 @@ jobs:
         app: [actions,dependabot]
     steps:
     - uses: actions/checkout@v6
-    - run: (gh secret list -a ${{ matrix.app }} | grep ENCRYPTION_KEY >/dev/null 2>&1) || gh secret set ENCRYPTION_KEY --app ${{ matrix.app }} --body ${{ needs.variables.outputs.gpg-key }}
-      name: Set ${{ matrix.app }} Secret ENCRYPTION_KEY
+    - run: (gh secret list -a ${{ matrix.app }} | grep GPG_FILE_PASSWORD >/dev/null 2>&1) || gh secret set GPG_FILE_PASSWORD --app ${{ matrix.app }} --body ${{ needs.variables.outputs.gpg-key }}
+      name: Set ${{ matrix.app }} Secret GPG_FILE_PASSWORD
       env:
         GITHUB_TOKEN: ${{ secrets.REPO_TOKEN }}
     - run: gh secret delete REPO_TOKEN
@@ -87,9 +87,16 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Generate GPG Key
+        env:
+          GPG_PASSWORD: ${{ secrets.GPG_KEY_PASSWORD }}
         run: |
-          gpg --full-generate-key --expert --batch <<-END
-          %no-protection
+          if [ -z "$GPG_PASSWORD" ]; then
+            echo "%no-protection" > params
+          else
+            echo "Passphrase: $GPG_PASSWORD" > params
+          fi
+
+          cat <<-END >> params
           Key-Type: eddsa
           Key-Curve: Ed25519
           Key-Usage: sign
@@ -98,10 +105,12 @@ jobs:
           Expire-Date: 3m
           %commit
           END
+          
+          gpg --full-generate-key --expert --batch params
       - name: Export Keys
         run: |
           rm -f ${{ needs.variables.outputs.enc-gpg }} ${{ needs.variables.outputs.pub-gpg }}
-          KEYID = $(gpg --list-secret-keys --keyid-format=long ${{ needs.variables.outputs.email }} | grep 'sec' | awk 'match($0, /[0-9A-Z]{16}/) {print substr($0, RSTART, RLENGTH)}')
+          KEYID=$(gpg --list-secret-keys --keyid-format=long ${{ needs.variables.outputs.email }} | grep 'sec' | awk 'match($0, /[0-9A-Z]{16}/) {print substr($0, RSTART, RLENGTH)}')
           gpg --armor --export-secret-key $KEYID | openssl aes-256-cbc -a -salt -pbkdf2 -out ${{ needs.variables.outputs.enc-gpg }} -pass pass:${{ needs.variables.outputs.gpg-key }}
           gpg --batch --output ${{ needs.variables.outputs.pub-gpg }} --armor --export $KEYID
       - name: Push Changes

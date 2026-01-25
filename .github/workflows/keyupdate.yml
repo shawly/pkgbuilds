@@ -63,15 +63,27 @@ jobs:
               echo "::set-output name=${1}::${2}"
             fi
           }
-          if [ -z "${{ secrets.ENCRYPTION_KEY }}" ]; then
+          if [ -z "${{ secrets.GPG_FILE_PASSWORD }}" ]; then
             set_output run false
           else
             set_output run true
           fi
       - name: Import Keys
+        env:
+          GPG_PASSWORD: ${{ secrets.GPG_KEY_PASSWORD }}
         if: ${{ steps.vars.outputs.run == 'true' }}
         run: |
-          openssl aes-256-cbc -d -a -pbkdf2 -in ${{ needs.variables.outputs.enc-gpg }} -pass pass:${{ secrets.ENCRYPTION_KEY }} | gpg --import
+          if [ -z "$GPG_PASSWORD" ]; then
+            openssl aes-256-cbc -d -a -pbkdf2 -in ${{ needs.variables.outputs.enc-gpg }} -pass pass:${{ secrets.GPG_FILE_PASSWORD }} | gpg --import
+          else
+            echo "allow-preset-passphrase" | gpg-connect-agent --agent-program /usr/bin/gpg-agent
+            openssl aes-256-cbc -d -a -pbkdf2 -in ${{ needs.variables.outputs.enc-gpg }} -pass pass:${{ secrets.GPG_FILE_PASSWORD }} | gpg --import
+            KGRIPS=$(gpg --list-secret-keys --with-colons --with-keygrip | awk -F: '$1 == "grp" {print $10}')
+            for KGRIP in $KGRIPS; do
+              echo "$GPG_PASSWORD" | /usr/lib/gnupg/gpg-preset-passphrase --preset "${KGRIP}"
+            done
+          fi
+
           if [ -f "${{ needs.variables.outputs.pub-gpg }}" ]; then
             cat ${{ needs.variables.outputs.pub-gpg }} | gpg --import
           fi
@@ -108,7 +120,7 @@ jobs:
         if: ${{ steps.check.outputs.update == 'true' }}
         run: |
           rm ${{ needs.variables.outputs.enc-gpg }} ${{ needs.variables.outputs.pub-gpg }}
-          gpg --armor --export-secret-key ${{ steps.check.outputs.keyId }} | openssl aes-256-cbc -a -salt -pbkdf2 -out ${{ needs.variables.outputs.enc-gpg }} -pass pass:${{ secrets.ENCRYPTION_KEY }}
+          gpg --armor --export-secret-key ${{ steps.check.outputs.keyId }} | openssl aes-256-cbc -a -salt -pbkdf2 -out ${{ needs.variables.outputs.enc-gpg }} -pass pass:${{ secrets.GPG_FILE_PASSWORD }}
           gpg --batch --output ${{ needs.variables.outputs.pub-gpg }} --armor --export ${{ steps.check.outputs.keyId }}
       - name: Push Changes
         if: ${{ steps.check.outputs.update == 'true' }}
@@ -147,8 +159,9 @@ jobs:
       uses: ./.github/actions/archlinux
       env:
         PACKAGER: ${{ needs.variables.outputs.packager }}
-        SECRET: ${{ secrets.ENCRYPTION_KEY }}
+        GPG_FILE_PASSWORD: ${{ secrets.GPG_FILE_PASSWORD }}
         GPGKEY: ${{ needs.variables.outputs.enc-gpg }}
+        GPG_KEY_PASSWORD: ${{ secrets.GPG_KEY_PASSWORD }}
       with:
         dir: ${{ matrix.package }}
         run: makepkg -sr --sign -C -c --noconfirm --noprogressbar
@@ -185,8 +198,9 @@ jobs:
       uses: ./.github/actions/archlinux
       env:
         PACKAGER: ${{ needs.variables.outputs.packager }}
-        SECRET: ${{ secrets.ENCRYPTION_KEY }}
+        GPG_FILE_PASSWORD: ${{ secrets.GPG_FILE_PASSWORD }}
         GPGKEY: ${{ needs.variables.outputs.enc-gpg }}
+        GPG_KEY_PASSWORD: ${{ secrets.GPG_KEY_PASSWORD }}
       with:
         run: repo-add -s -q --nocolor -n -R ${{ needs.variables.outputs.repo-name }}.db.tar.gz *.pkg.tar.zst
     - name: Upload new repo
