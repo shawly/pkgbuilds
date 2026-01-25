@@ -1,0 +1,22 @@
+# Contributor: shawly
+pkgname=shawly-keyring
+pkgver=20260125073557
+pkgrel=1
+pkgdesc="Keyring for shawly's PKGBUILDs repository"
+arch=(any)
+url="https://github.com/shawly/pkgbuilds"
+license=('ISC')
+source=(public.gpg)
+sha256sums=(SKIP)
+depends=()
+
+pkgver() {
+  date --date "`git log -1 --pretty=\"format:%ci\" public.gpg`" +%Y%m%d%H%M%S
+}
+
+package() {
+  install=shawly-keyring.install
+  depends=(pacrepo-cli)
+  install -dm 755 "${pkgdir}/usr/share/shawly-keyring"
+	install -Dm644 "public.gpg" "${pkgdir}/usr/share/shawly-keyring/public.gpg"
+}
