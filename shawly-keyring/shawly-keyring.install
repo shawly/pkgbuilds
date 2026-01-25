@@ -1,7 +1,5 @@
 post_install() {
 	post_upgrade
-	/usr/bin/pacrepo-cli remove shawly
-	/usr/bin/pacrepo-cli add shawly https://github.com/shawly/pkgbuilds/releases/download/repository
 }
 
 post_upgrade() {
@@ -13,5 +11,4 @@ post_upgrade() {
 pre_remove() {
 	KEY=$(gpg --show-keys --keyid-format=long /usr/share/shawly-keyring/public.gpg | grep 'pub' | awk 'match($2,/[A-Z0-9]{16}/){print substr($2,RSTART,RLENGTH)}')
 	/usr/bin/pacman-key -d ${KEY}
-	/usr/bin/pacrepo-cli remove shawly
 }
