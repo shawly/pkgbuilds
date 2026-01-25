@@ -13,3 +13,6 @@
 [submodule "qtutilities-qt6"]
 	path = qtutilities-qt6
 	url = https://aur.archlinux.org/qtutilities-qt6.git
+[submodule "steamtinkerlaunch"]
+	path = steamtinkerlaunch
+	url = https://aur.archlinux.org/steamtinkerlaunch-git.git
