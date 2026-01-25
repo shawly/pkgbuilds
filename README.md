@@ -101,7 +101,8 @@ Users can install your keyring package to enable package signature verification:
 
 ```bash
 # Download and install the keyring package
-# (Replace with actual release URL once built)
+# Replace VERSION with the actual version (e.g., 20260125073557-1)
+# You can find the version in the GitHub Releases page
 wget https://github.com/shawly/pkgbuilds/releases/download/shawly-keyring/shawly-keyring-VERSION-any.pkg.tar.zst
 sudo pacman -U shawly-keyring-*.pkg.tar.zst
 
