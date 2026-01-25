@@ -35,7 +35,7 @@ jobs:
         with:
           files_ignore: .github/**
           json: true
-          json_raw_format: true
+          escape_json: true
       - run: echo ${{ steps.deleted-files.outputs.deleted_files }}
       - run: echo ${{ steps.deleted-files.outputs.other_deleted_files }}
       - name: Get added files
@@ -45,9 +45,9 @@ jobs:
           files_ignore: .github/**
           dir_names: true
           dir_names_max_depth: 1
-          dir_names_exclude_root: true
+          dir_names_exclude_current_dir: true
           json: true
-          json_raw_format: true
+          escape_json: true
       - run: echo ${{ steps.added-files.outputs.deleted_files }}
       - run: echo ${{ steps.added-files.outputs.other_deleted_files }}
 
