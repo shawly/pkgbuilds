@@ -5,6 +5,13 @@ Use GitHub Actions for building and packaging a few [AUR](https://aur.archlinux.
 
 ## Using as a pacman repository
 
+Import the keyring:
+
+```bash
+wget https://github.com/shawly/pkgbuilds/releases/download/repository/shawly-keyring-20260125000000-1-any.pkg.tar.zst
+sudo pacman -U shawly-keyring-*.pkg.tar.zst
+```
+
 To use as custom repository in [Arch Linux](https://www.archlinux.org), add to file `/etc/pacman.conf`:
 
 ```
@@ -16,39 +23,6 @@ Server = https://github.com/shawly/pkgbuilds/releases/download/repository
 ## Fork Instructions
 
 Follow these steps to set up your own PKGBUILDs repository:
-
-### Generate GPG Key
-
-```bash
-# Generate a new GPG key for package signing
-gpg --full-generate-key
-# Select: (1) RSA and RSA
-# Keysize: 4096
-# Expiration: 0 (does not expire) or set your preferred expiration
-# Real name: shawly (Github Actions)
-# Email: github-action@users.noreply.github.com
-# Comment: Package signing key
-# Passphrase: <LEAVE EMPTY> (Hit enter twice. The protection is done via openssl below)
-# Note: If you do set a passphrase, you must add it as GPG_KEY_PASSWORD in GitHub Secrets (see step 2).
-
-# List keys to find your key ID
-gpg --list-secret-keys --keyid-format=long
-# Look for the line starting with 'sec' and note the key ID after 'rsa4096/'
-
-# Export your public key (replace KEY_ID with your actual key ID)
-gpg --armor --export KEY_ID > shawly-keyring/public.gpg
-
-# Export your private key for GitHub Actions (replace KEY_ID with your actual key ID)
-gpg --armor --export-secret-keys KEY_ID > key.gpg
-
-# Encrypt the private key with a passphrase for GitHub Secrets
-# We add -pbkdf2 to fix the deprecation warning and -a to base64 encode it for the workflow
-openssl enc -aes-256-cbc -salt -a -pbkdf2 -in key.gpg -out key.gpg.enc
-# Enter a strong encryption passphrase and remember it for the GPG_FILE_PASSWORD secret
-
-# Clean up the unencrypted private key
-rm key.gpg
-```
 
 ### Configure GitHub Secrets
 
@@ -62,6 +36,8 @@ Add the following secrets:
   - **Permissions**: Repository permissions → Secrets (Read and Write)
   - **Note**: You can safely delete this token after the setup workflow completes.
 
+If you use only the REPO_TOKEN you can skip the other variables as the setup workflow will setup all keys automatically.
+
 ### Add AUR Packages as Submodules
 
 ```bash
@@ -74,7 +50,7 @@ git submodule add https://aur.archlinux.org/yay.git yay
 
 # Commit the changes
 git add .gitmodules yay/
-git commit -m "Add yay submodule"
+git commit -m "feat: add yay submodule"
 git push
 ```
 
@@ -85,21 +61,6 @@ Once you push changes or merge a dependabot PR:
 - Sign them with your GPG key
 - Deploy to GitHub Releases
 - Update the package repository
-
-### Install the Keyring Package (For Users)
-
-Users can install your keyring package to enable package signature verification:
-
-```bash
-# Download and install the keyring package
-# Replace VERSION with the actual version (e.g., 20260125073557-1)
-# You can find the version in the GitHub Releases page
-wget https://github.com/shawly/pkgbuilds/releases/download/shawly-keyring/shawly-keyring-VERSION-any.pkg.tar.zst
-sudo pacman -U shawly-keyring-*.pkg.tar.zst
-
-# Or add to pacman.conf and install via pacman:
-sudo pacman -Sy shawly-keyring
-```
 
 ## Customizing
 

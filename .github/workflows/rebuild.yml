@@ -50,8 +50,7 @@ jobs:
         with:
           delete_release: true # default: false
           tag_name: repository
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
 
   build-levels:
     needs: 
