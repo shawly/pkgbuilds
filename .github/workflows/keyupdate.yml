@@ -12,6 +12,7 @@ on:
 permissions:
   packages: write
   contents: write
+  actions: write
 
 concurrency:
   group: "release"
@@ -23,10 +24,6 @@ jobs:
       enc-gpg: ${{ steps.config.outputs.enc-gpg }}
       pub-gpg: ${{ steps.config.outputs.pub-gpg }}
       email: ${{ steps.config.outputs.email }}
-      repo-name: ${{ steps.config.outputs.repo-name }}
-      packager: ${{ steps.config.outputs.packager }}
-
-      matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
     - uses: actions/checkout@v6
       with:
@@ -34,39 +31,20 @@ jobs:
         ref: master
     - id: config
       uses: ./.github/actions/load-config
-    - id: set-matrix
-      run: |
-        set_output () {
-          if [[ -z "${ACT}" ]]; then
-            echo "${1}=${2}" | tee -a "${GITHUB_OUTPUT}"
-          else
-            echo "set-output name=${1}::${2}"
-            echo "::set-output name=${1}::${2}"
-          fi
-        }
-        set_output matrix "`find . -iname 'PKGBUILD' -exec bash -c \"basename \\$(dirname \\"{}\\")\" \\; | jq -R -s -c 'split(\"\n\")[:-1]'`"
 
   updateExpiry:
     runs-on: ubuntu-latest
     needs: variables
     outputs:
-      rebuild: ${{ steps.vars.outputs.run == 'gen' || steps.check.outputs.update == 'true' }}
+      update: ${{ steps.check.outputs.update }}
     steps:
       - uses: actions/checkout@v6
       - id: vars
         run: |
-          set_output () {
-            if [[ -z "${ACT}" ]]; then
-              echo "${1}=${2}" | tee -a "${GITHUB_OUTPUT}"
-            else
-              echo "set-output name=${1}::${2}"
-              echo "::set-output name=${1}::${2}"
-            fi
-          }
           if [ -z "${{ secrets.GPG_FILE_PASSWORD }}" ]; then
-            set_output run false
+            echo "run=false" >> $GITHUB_OUTPUT
           else
-            set_output run true
+            echo "run=true" >> $GITHUB_OUTPUT
           fi
       - name: Import Keys
         env:
@@ -90,23 +68,17 @@ jobs:
       - id: check
         if: ${{ steps.vars.outputs.run == 'true' }}
         run: |
-          set_output () {
-            if [[ -z "${ACT}" ]]; then
-              echo "${1}=${2}" | tee -a "${GITHUB_OUTPUT}"
-            else
-              echo "set-output name=${1}::${2}"
-              echo "::set-output name=${1}::${2}"
-            fi
-          }
-          set_output keyId "$(gpg --list-secret-keys --keyid-format=long ${{ needs.variables.outputs.email }} | grep 'sec' | awk 'match($0, /[0-9A-Z]{16}/) {print substr($0, RSTART, RLENGTH)}')"
+          keyId=$(gpg --list-secret-keys --keyid-format=long ${{ needs.variables.outputs.email }} | grep 'sec' | awk 'match($0, /[0-9A-Z]{16}/) {print substr($0, RSTART, RLENGTH)}')
+          echo "keyId=$keyId" >> $GITHUB_OUTPUT
+          
           expiry=`gpg --list-secret-keys --keyid-format=long ${{ needs.variables.outputs.email }} | grep 'sec' | awk 'match ($6, /[0-9-]{10}/){print substr($6, RSTART, RLENGTH)}'`
           echo "Key Expires on ${expiry}"
-          dtSec=$(date --date "$expiry" +'%s')    # For "now", use $(date +'%s')
+          dtSec=$(date --date "$expiry" +'%s')
           taSec=$(date --date "30 days" +'%s')
           if [ $dtSec -lt $taSec ]; then
-            set_output update true
+            echo "update=true" >> $GITHUB_OUTPUT
           else
-            set_output update false
+            echo "update=false" >> $GITHUB_OUTPUT
           fi
       - name: Update Expiry
         if: ${{ steps.check.outputs.update == 'true' }}
@@ -130,85 +102,14 @@ jobs:
           git add ${{ needs.variables.outputs.enc-gpg }} ${{ needs.variables.outputs.pub-gpg }}
           git commit -m "Update GPG Key"
           git push -u origin master
-      - name: Rebuild Repo
-        if: ${{ steps.check.outputs.update == 'true' }}
-        uses: dev-drprasad/delete-tag-and-release@v1.1
-        with:
-          delete_release: true # default: false
-          tag_name: repository
+
+  trigger-rebuild:
+    runs-on: ubuntu-latest
+    needs: updateExpiry
+    if: ${{ needs.updateExpiry.outputs.update == 'true' }}
+    steps:
+      - name: Trigger Full Rebuild
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  build-package:
-    runs-on: ubuntu-latest
-    if: ${{ needs.updateExpiry.outputs.rebuild == 'true' }}
-    needs: 
-      - variables
-      - updateExpiry
-
-    strategy:
-      fail-fast: false
-      matrix:
-        package: ${{ fromJson(needs.variables.outputs.matrix) }}
-    
-    steps:
-    - uses: actions/checkout@v6
-      with:
-        submodules: recursive
-        ref: master
-    - name: Build ${{ matrix.package }}
-      uses: ./.github/actions/archlinux
-      env:
-        PACKAGER: ${{ needs.variables.outputs.packager }}
-        GPG_FILE_PASSWORD: ${{ secrets.GPG_FILE_PASSWORD }}
-        GPGKEY: ${{ needs.variables.outputs.enc-gpg }}
-        GPG_KEY_PASSWORD: ${{ secrets.GPG_KEY_PASSWORD }}
-      with:
-        dir: ${{ matrix.package }}
-        run: makepkg -sr --sign -C -c --noconfirm --noprogressbar
-    - name: Upload new package ${{ matrix.package }}
-      uses: svenstaro/upload-release-action@v2
-      with:
-        repo_token: ${{ secrets.GITHUB_TOKEN }}
-        tag: repository
-        file: ${{ matrix.package }}/*.pkg.*
-        file_glob: true
-        overwrite: false
-
-  build-repo:
-    runs-on: "ubuntu-latest"
-    if: ${{ needs.updateExpiry.outputs.rebuild == 'true' }}
-    needs: 
-      - variables
-      - build-package
-      - updateExpiry
-
-    steps:
-    - uses: actions/checkout@v6
-      with:
-        ref: master
-    - name: Get current packages
-      uses: robinraju/release-downloader@v1.12
-      with:
-        latest: true
-        fileName: '*.pkg.*'
-        tarBall: false
-        zipBall: false
-        token: ${{ secrets.GITHUB_TOKEN }}
-    - name: Build Repo
-      uses: ./.github/actions/archlinux
-      env:
-        PACKAGER: ${{ needs.variables.outputs.packager }}
-        GPG_FILE_PASSWORD: ${{ secrets.GPG_FILE_PASSWORD }}
-        GPGKEY: ${{ needs.variables.outputs.enc-gpg }}
-        GPG_KEY_PASSWORD: ${{ secrets.GPG_KEY_PASSWORD }}
-      with:
-        run: repo-add -s -q --nocolor -n -R ${{ needs.variables.outputs.repo-name }}.db.tar.gz *.pkg.tar.zst
-    - name: Upload new repo
-      uses: svenstaro/upload-release-action@v2
-      with:
-        repo_token: ${{ secrets.GITHUB_TOKEN }}
-        tag: repository
-        file: ${{ needs.variables.outputs.repo-name }}.db*
-        file_glob: true
-        overwrite: true
+        run: |
+          gh workflow run main.yml --ref master -f force_rebuild=true

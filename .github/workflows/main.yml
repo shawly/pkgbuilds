@@ -1,0 +1,180 @@
+name: Build Packages
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      force_rebuild:
+        description: 'Rebuild all packages'
+        required: false
+        default: false
+        type: boolean
+  workflow_call:
+    inputs:
+      force_rebuild:
+        description: 'Rebuild all packages'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  packages: write
+  contents: write
+
+concurrency:
+  group: "build-${{ github.ref }}"
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    outputs:
+      levels: ${{ steps.manager.outputs.levels }}
+      level_map: ${{ steps.manager.outputs.level_map }}
+      deleted: ${{ steps.manager.outputs.deleted }}
+      publish: ${{ steps.check_publish.outputs.publish }}
+      
+      packager: ${{ steps.config.outputs.packager }}
+      enc-gpg: ${{ steps.config.outputs.enc-gpg }}
+      repo-name: ${{ steps.config.outputs.repo-name }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      
+      - id: config
+        uses: ./.github/actions/load-config
+
+      - name: Install Python Dependencies
+        run: pip install networkx
+
+      - name: Update pkgver in PKGBUILDs
+        run: |
+           # Use archlinux container to run makepkg and update pkgver in PKGBUILDs
+           # We need git installed and a non-root user
+           docker run --rm -v "$PWD":/work -w /work archlinux:base-devel /bin/bash -c '
+             pacman -Sy --noconfirm git
+             useradd -m builder
+             chown -R builder /work
+             su builder -c "git config --global --add safe.directory /work"
+             su builder -c "find . -name PKGBUILD -print0 | while IFS= read -r -d \"\" file; do
+               dir=\$(dirname \"\$file\")
+               echo \"Updating pkgver for \$dir...\"
+               (cd \"\$dir\" && makepkg --nobuild --nodeps --ignorearch || true)
+             done"
+           '
+           # Restore permissions
+           sudo chown -R $USER .
+
+      - name: Determine Strategy
+        id: check_publish
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/master" ]]; then
+            echo "publish=true" >> $GITHUB_OUTPUT
+          else
+            echo "publish=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Analyze Changes
+        id: manager
+        run: |
+          FORCE_FLAG=""
+          if [[ "${{ inputs.force_rebuild }}" == "true" ]]; then
+            FORCE_FLAG="--force"
+          fi
+          
+          python3 .github/scripts/manage_packages.py $FORCE_FLAG --repo-name "${{ steps.config.outputs.repo-name }}"
+
+  delete-packages:
+    runs-on: ubuntu-latest
+    needs: analyze
+    if: needs.analyze.outputs.publish == 'true' && needs.analyze.outputs.deleted != '[]'
+    env:
+       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+       DELETED_JSON: ${{ needs.analyze.outputs.deleted }}
+    steps:
+      - name: Delete old packages
+        run: |
+          # Fetch all assets from the repository release
+          gh release view repository -R $GITHUB_REPOSITORY --json assets > release.json
+          
+          # Use jq to filter assets whose names start with with "pkgname-" for any deleted package
+          jq -r --argjson deleted "$DELETED_JSON" '
+            .assets[].name | 
+            select(. as $n | $deleted | any( . as $p | $n | startswith($p + "-") ))
+          ' release.json > to_delete.txt
+          
+          if [ -s to_delete.txt ]; then
+             echo "Found assets to delete:"
+             cat to_delete.txt
+             while IFS= read -r asset; do
+                if [ -n "$asset" ]; then
+                   echo "Deleting $asset..."
+                   gh release delete-asset repository "$asset" -R "$GITHUB_REPOSITORY" -y
+                fi
+             done < to_delete.txt
+          else
+             echo "No assets to delete found."
+          fi
+
+  build-levels:
+    needs: 
+      - analyze
+      - delete-packages
+    if: always() && needs.analyze.outputs.levels != '[]' && (needs.delete-packages.result == 'success' || needs.delete-packages.result == 'skipped')
+    strategy:
+      max-parallel: 1
+      fail-fast: true
+      matrix:
+        level: ${{ fromJson(needs.analyze.outputs.levels) }}
+    uses: ./.github/workflows/build-level.yml
+    with:
+      packages: ${{ toJson(fromJson(needs.analyze.outputs.level_map)[format('{0}', matrix.level)]) }}
+      packager: ${{ needs.analyze.outputs.packager }}
+      enc_gpg: ${{ needs.analyze.outputs.enc-gpg }}
+      publish: ${{ needs.analyze.outputs.publish == 'true' }}
+    secrets:
+      GPG_FILE_PASSWORD: ${{ secrets.GPG_FILE_PASSWORD }}
+      GPG_KEY_PASSWORD: ${{ secrets.GPG_KEY_PASSWORD }}
+
+  update-repo:
+    runs-on: ubuntu-latest
+    needs:
+      - analyze
+      - build-levels
+      - delete-packages
+    if: always() && needs.analyze.outputs.publish == 'true' && (needs.analyze.outputs.levels != '[]' || needs.analyze.outputs.deleted != '[]') && (needs.build-levels.result == 'success' || needs.build-levels.result == 'skipped')
+    steps:
+      - uses: actions/checkout@v6
+      
+      - name: Get current packages
+        uses: robinraju/release-downloader@v1.12
+        with:
+          latest: true
+          fileName: '*.pkg.*'
+          tarBall: false
+          zipBall: false
+          token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Build Repo Database
+        uses: ./.github/actions/archlinux
+        env:
+          PACKAGER: ${{ needs.analyze.outputs.packager }}
+          GPG_FILE_PASSWORD: ${{ secrets.GPG_FILE_PASSWORD }}
+          GPGKEY: ${{ needs.analyze.outputs.enc-gpg }}
+          GPG_KEY_PASSWORD: ${{ secrets.GPG_KEY_PASSWORD }}
+        with:
+          run: repo-add -s -q --nocolor -n -R ${{ needs.analyze.outputs.repo-name }}.db.tar.gz *.pkg.tar.zst
+          
+      - name: Upload new repo db
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          tag: repository
+          file: ${{ needs.analyze.outputs.repo-name }}.db*
+          file_glob: true
+          overwrite: true

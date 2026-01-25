@@ -18,6 +18,10 @@ on:
       gpg_file_password_secret_name:
           required: false
           type: string
+      publish:
+        required: false
+        type: boolean
+        default: true
 
     secrets:
       GPG_FILE_PASSWORD:
@@ -63,8 +67,12 @@ jobs:
         with:
           dir: ${{ matrix.package }}
           run: makepkg -sr --sign -C -c --noconfirm --noprogressbar
+
+      - name: Remove debug packages
+        run: rm -f ${{ matrix.package }}/${{ matrix.package }}-debug-*.pkg.tar.zst*
           
       - name: Upload new package ${{ matrix.package }}
+        if: inputs.publish
         uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}

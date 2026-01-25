@@ -1,6 +1,6 @@
 # Contributor: shawly
 pkgname=shawly-keyring
-pkgver=20260125073557
+pkgver=20260125000000
 pkgrel=1
 pkgdesc="Keyring for shawly's PKGBUILDs repository"
 arch=(any)
