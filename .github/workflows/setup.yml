@@ -65,15 +65,16 @@ jobs:
     if: ${{ needs.variables.outputs.has-token == 'true' }}
     needs: variables
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        app: [actions,dependabot]
     steps:
     - uses: actions/checkout@v6
-    - run: (gh secret list -a ${{ matrix.app }} | grep GPG_FILE_PASSWORD >/dev/null 2>&1) || gh secret set GPG_FILE_PASSWORD --app ${{ matrix.app }} --body ${{ needs.variables.outputs.gpg-key }}
-      name: Set ${{ matrix.app }} Secret GPG_FILE_PASSWORD
+    - name: Set secrets
       env:
         GITHUB_TOKEN: ${{ secrets.REPO_TOKEN }}
+        GPG_KEY: ${{ needs.variables.outputs.gpg-key }}
+      run: |
+        for app in actions dependabot; do
+          (gh secret list -a $app | grep GPG_FILE_PASSWORD >/dev/null 2>&1) || gh secret set GPG_FILE_PASSWORD --app $app --body "$GPG_KEY"
+        done
     - run: gh secret delete REPO_TOKEN
       name: Remove REPO_TOKEN
       env:

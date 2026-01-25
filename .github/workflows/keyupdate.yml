@@ -147,6 +147,7 @@ jobs:
       - updateExpiry
 
     strategy:
+      fail-fast: false
       matrix:
         package: ${{ fromJson(needs.variables.outputs.matrix) }}
     
