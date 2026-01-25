@@ -13,11 +13,11 @@ SigLevel = Optional TrustAll
 Server = https://github.com/shawly/pkgbuilds/releases/download/repository
 ```
 
-## Setup Instructions (TODO)
+## Fork Instructions
 
 Follow these steps to set up your own PKGBUILDs repository:
 
-### 1. Generate GPG Key
+### Generate GPG Key
 
 ```bash
 # Generate a new GPG key for package signing
@@ -50,7 +50,7 @@ openssl enc -aes-256-cbc -salt -a -pbkdf2 -in key.gpg -out key.gpg.enc
 rm key.gpg
 ```
 
-### 2. Configure GitHub Secrets
+### Configure GitHub Secrets
 
 Go to your repository settings on GitHub: Settings → Secrets and variables → Actions
 
@@ -62,15 +62,7 @@ Add the following secrets:
   - **Permissions**: Repository permissions → Secrets (Read and Write)
   - **Note**: You can safely delete this token after the setup workflow completes.
 
-### 3. Update Repository Configuration
-
-The following files have already been updated for shawly:
-- ✅ `config.json` - Points to shawly-keyring/public.gpg
-- ✅ `shawly-keyring/PKGBUILD` - Package definition
-- ✅ `shawly-keyring/shawly-keyring.install` - Install scripts
-- ✅ All existing submodules removed
-
-### 4. Add AUR Packages as Submodules
+### Add AUR Packages as Submodules
 
 ```bash
 # Add AUR packages you want to build as git submodules
@@ -86,14 +78,7 @@ git commit -m "Add yay submodule"
 git push
 ```
 
-### 5. Enable Dependabot
-
-Dependabot is already configured in `.github/dependabot.yml`. It will:
-- Check for submodule updates weekly
-- Automatically create PRs when AUR packages are updated
-- Trigger builds when PRs are merged
-
-### 6. Build and Deploy
+### Build and Deploy
 
 Once you push changes or merge a dependabot PR:
 - GitHub Actions will build the packages
@@ -101,7 +86,7 @@ Once you push changes or merge a dependabot PR:
 - Deploy to GitHub Releases
 - Update the package repository
 
-### 7. Install the Keyring Package (For Users)
+### Install the Keyring Package (For Users)
 
 Users can install your keyring package to enable package signature verification:
 

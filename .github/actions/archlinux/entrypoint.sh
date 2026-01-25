@@ -25,6 +25,11 @@ fi
 
 cd $1
 shift
+
+if [ -d "_deps" ]; then
+    find _deps -name "*.pkg.tar.zst" -exec pacman -U --noconfirm {} +
+fi
+
 sudo -u build --preserve-env=PACKAGER $@
 
 cd "$od"

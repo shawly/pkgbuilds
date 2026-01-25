@@ -1,0 +1,74 @@
+name: Build Level
+on:
+  workflow_call:
+    inputs:
+      packages:
+        required: true
+        type: string
+        description: 'JSON list of packages to build'
+      packager:
+        required: true
+        type: string
+      enc_gpg:
+        required: true
+        type: string
+      gpg_key_password_secret_name:
+         required: false
+         type: string
+      gpg_file_password_secret_name:
+          required: false
+          type: string
+
+    secrets:
+      GPG_FILE_PASSWORD:
+        required: true
+      GPG_KEY_PASSWORD:
+        required: true
+
+jobs:
+  build-package:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package: ${{ fromJson(inputs.packages) }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+          ref: master
+      
+      - name: Get current packages
+        uses: robinraju/release-downloader@v1.12
+        with:
+          latest: true
+          fileName: '*.pkg.*'
+          tarBall: false
+          zipBall: false
+          token: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+
+      - name: Resolve dependencies for ${{ matrix.package }}
+        run: |
+          sudo apt-get update && sudo apt-get install -y zstd
+          python3 .github/scripts/resolve-deps.py ${{ matrix.package }}
+      
+      - name: Build ${{ matrix.package }}
+        uses: ./.github/actions/archlinux
+        env:
+          PACKAGER: ${{ inputs.packager }}
+          GPG_FILE_PASSWORD: ${{ secrets.GPG_FILE_PASSWORD }}
+          GPGKEY: ${{ inputs.enc_gpg }}
+          GPG_KEY_PASSWORD: ${{ secrets.GPG_KEY_PASSWORD }}
+        with:
+          dir: ${{ matrix.package }}
+          run: makepkg -sr --sign -C -c --noconfirm --noprogressbar
+          
+      - name: Upload new package ${{ matrix.package }}
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          tag: repository
+          file: ${{ matrix.package }}/*.pkg.*
+          file_glob: true
+          overwrite: false
