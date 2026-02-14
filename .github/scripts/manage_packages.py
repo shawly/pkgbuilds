@@ -253,19 +253,53 @@ def main():
     output_levels = sorted(levels.keys())
     output_map = {str(k): v for k, v in levels.items()}
     
+    # Determine which packages in the build queue have local dependencies
+    # A package has local deps if it has predecessors in the dependency graph
+    # (i.e., other packages in this repo that it depends on)
+    packages_with_local_deps = []
+    for folder in build_queue:
+        preds = list(G.predecessors(folder))
+        if preds:
+            packages_with_local_deps.append(folder)
+    
+    # Build the target state: every pkgname -> version that should exist in the repo
+    # This is the complete desired end state, regardless of what's currently published.
+    # Anything in the release that doesn't match this map should be removed.
+    target_packages = {}
+    for folder in all_local_dirs:
+        version = dir_to_ver.get(folder, '')
+        for pkgname in dir_to_pkgs.get(folder, []):
+            target_packages[pkgname] = version
+    
     outputs = {
         "levels": output_levels,
         "level_map": output_map,
-        "deleted": list(deletion_queue)
+        "packages_with_local_deps": packages_with_local_deps,
+        "target_packages": target_packages,
     }
     
     if os.getenv('GITHUB_OUTPUT'):
         with open(os.getenv('GITHUB_OUTPUT'), 'a') as f:
             f.write(f"levels={json.dumps(output_levels)}\n")
             f.write(f"level_map={json.dumps(output_map)}\n")
-            f.write(f"deleted={json.dumps(list(deletion_queue))}\n")
+            f.write(f"packages_with_local_deps={json.dumps(packages_with_local_deps)}\n")
+            f.write(f"target_packages={json.dumps(target_packages)}\n")
             
     print(json.dumps(outputs, indent=2))
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        print(f"FATAL: manage_packages.py failed: {e}", file=sys.stderr)
+        import traceback
+        traceback.print_exc(file=sys.stderr)
+        
+        # Write safe empty outputs so downstream jobs skip gracefully
+        if os.getenv('GITHUB_OUTPUT'):
+            with open(os.getenv('GITHUB_OUTPUT'), 'a') as f:
+                f.write("levels=[]\n")
+                f.write("level_map={}\n")
+                f.write("packages_with_local_deps=[]\n")
+                f.write("target_packages={}\n")
+        sys.exit(1)

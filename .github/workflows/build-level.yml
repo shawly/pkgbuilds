@@ -6,18 +6,17 @@ on:
         required: true
         type: string
         description: 'JSON list of packages to build'
+      packages_with_local_deps:
+        required: false
+        type: string
+        description: 'JSON list of packages that have local dependencies'
+        default: '[]'
       packager:
         required: true
         type: string
       enc_gpg:
         required: true
         type: string
-      gpg_key_password_secret_name:
-         required: false
-         type: string
-      gpg_file_password_secret_name:
-          required: false
-          type: string
       publish:
         required: false
         type: boolean
@@ -42,7 +41,15 @@ jobs:
           submodules: recursive
           ref: master
       
+      - name: Check if package has local dependencies
+        id: check_deps
+        run: |
+          set -e
+          HAS_LOCAL_DEPS=$(echo '${{ inputs.packages_with_local_deps }}' | jq -r --arg pkg "${{ matrix.package }}" 'if . | index($pkg) then "true" else "false" end')
+          echo "has_local_deps=$HAS_LOCAL_DEPS" >> "$GITHUB_OUTPUT"
+
       - name: Get current packages
+        if: steps.check_deps.outputs.has_local_deps == 'true'
         uses: robinraju/release-downloader@v1.12
         with:
           latest: true
@@ -52,9 +59,17 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
         continue-on-error: true
 
-      - name: Resolve dependencies for ${{ matrix.package }}
+      - name: Install zstd
+        if: steps.check_deps.outputs.has_local_deps == 'true'
         run: |
-          sudo apt-get update && sudo apt-get install -y zstd
+          if ! command -v zstd &>/dev/null; then
+            sudo apt-get update -qq && sudo apt-get install -y -qq zstd
+          fi
+
+      - name: Resolve dependencies for ${{ matrix.package }}
+        if: steps.check_deps.outputs.has_local_deps == 'true'
+        run: |
+          set -e
           python3 .github/scripts/resolve-deps.py ${{ matrix.package }}
       
       - name: Build ${{ matrix.package }}
@@ -79,4 +94,4 @@ jobs:
           tag: repository
           file: ${{ matrix.package }}/*.pkg.*
           file_glob: true
-          overwrite: false
+          overwrite: true

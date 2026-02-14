@@ -34,7 +34,8 @@ jobs:
     outputs:
       levels: ${{ steps.manager.outputs.levels }}
       level_map: ${{ steps.manager.outputs.level_map }}
-      deleted: ${{ steps.manager.outputs.deleted }}
+      packages_with_local_deps: ${{ steps.manager.outputs.packages_with_local_deps }}
+      target_packages: ${{ steps.manager.outputs.target_packages }}
       publish: ${{ steps.check_publish.outputs.publish }}
       
       packager: ${{ steps.config.outputs.packager }}
@@ -54,8 +55,10 @@ jobs:
 
       - name: Update pkgver in PKGBUILDs
         run: |
+           set -e
            # Use archlinux container to run makepkg and update pkgver in PKGBUILDs
            # We need git installed and a non-root user
+           # This is neccessary because some PKGBUILDs compute pkgver dynamically from git tags or commits
            docker run --rm -v "$PWD":/work -w /work archlinux:base-devel /bin/bash -c '
              pacman -Sy --noconfirm git
              useradd -m builder
@@ -82,50 +85,23 @@ jobs:
       - name: Analyze Changes
         id: manager
         run: |
+          set -e
           FORCE_FLAG=""
           if [[ "${{ inputs.force_rebuild }}" == "true" ]]; then
             FORCE_FLAG="--force"
           fi
           
           python3 .github/scripts/manage_packages.py $FORCE_FLAG --repo-name "${{ steps.config.outputs.repo-name }}"
-
-  delete-packages:
-    runs-on: ubuntu-latest
-    needs: analyze
-    if: needs.analyze.outputs.publish == 'true' && needs.analyze.outputs.deleted != '[]'
-    env:
-       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-       DELETED_JSON: ${{ needs.analyze.outputs.deleted }}
-    steps:
-      - name: Delete old packages
-        run: |
-          # Fetch all assets from the repository release
-          gh release view repository -R $GITHUB_REPOSITORY --json assets > release.json
           
-          # Use jq to filter assets whose names start with with "pkgname-" for any deleted package
-          jq -r --argjson deleted "$DELETED_JSON" '
-            .assets[].name | 
-            select(. as $n | $deleted | any( . as $p | $n | startswith($p + "-") ))
-          ' release.json > to_delete.txt
-          
-          if [ -s to_delete.txt ]; then
-             echo "Found assets to delete:"
-             cat to_delete.txt
-             while IFS= read -r asset; do
-                if [ -n "$asset" ]; then
-                   echo "Deleting $asset..."
-                   gh release delete-asset repository "$asset" -R "$GITHUB_REPOSITORY" -y
-                fi
-             done < to_delete.txt
-          else
-             echo "No assets to delete found."
+          # Validate outputs were set
+          if [ ! -f "$GITHUB_OUTPUT" ] || ! grep -q "^levels=" "$GITHUB_OUTPUT"; then
+            echo "ERROR: manage_packages.py did not produce expected outputs"
+            exit 1
           fi
 
   build-levels:
-    needs: 
-      - analyze
-      - delete-packages
-    if: always() && needs.analyze.outputs.levels != '[]' && (needs.delete-packages.result == 'success' || needs.delete-packages.result == 'skipped')
+    needs: analyze
+    if: needs.analyze.outputs.levels != '[]'
     strategy:
       max-parallel: 1
       fail-fast: true
@@ -134,6 +110,7 @@ jobs:
     uses: ./.github/workflows/build-level.yml
     with:
       packages: ${{ toJson(fromJson(needs.analyze.outputs.level_map)[format('{0}', matrix.level)]) }}
+      packages_with_local_deps: ${{ needs.analyze.outputs.packages_with_local_deps }}
       packager: ${{ needs.analyze.outputs.packager }}
       enc_gpg: ${{ needs.analyze.outputs.enc-gpg }}
       publish: ${{ needs.analyze.outputs.publish == 'true' }}
@@ -146,8 +123,7 @@ jobs:
     needs:
       - analyze
       - build-levels
-      - delete-packages
-    if: always() && needs.analyze.outputs.publish == 'true' && (needs.analyze.outputs.levels != '[]' || needs.analyze.outputs.deleted != '[]') && (needs.build-levels.result == 'success' || needs.build-levels.result == 'skipped')
+    if: always() && needs.analyze.outputs.publish == 'true' && needs.analyze.outputs.target_packages != '{}' && (needs.build-levels.result == 'success' || needs.build-levels.result == 'skipped')
     steps:
       - uses: actions/checkout@v6
       
@@ -159,6 +135,42 @@ jobs:
           tarBall: false
           zipBall: false
           token: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+
+      - name: Install zstd
+        run: |
+          if ! command -v zstd &>/dev/null; then
+            sudo apt-get update -qq && sudo apt-get install -y -qq zstd
+          fi
+
+      - name: Reconcile assets against target state
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TARGET_PACKAGES: ${{ needs.analyze.outputs.target_packages }}
+        run: |
+          set -e
+          # Determine which downloaded assets are stale
+          python3 .github/scripts/cleanup_assets.py \
+            --target-packages "$TARGET_PACKAGES" \
+            --assets-dir .
+
+          # Delete stale assets from the GitHub release
+          if [ -s delete.txt ]; then
+            echo "Deleting stale assets from release..."
+            while IFS= read -r asset; do
+              [ -z "$asset" ] && continue
+              echo "  Deleting: $asset"
+              gh release delete-asset repository "$asset" -R "$GITHUB_REPOSITORY" -y 2>/dev/null || true
+            done < delete.txt
+
+            # Also remove the stale files locally so repo-add only sees current packages
+            while IFS= read -r asset; do
+              [ -z "$asset" ] && continue
+              rm -f "$asset"
+            done < delete.txt
+          else
+            echo "No stale assets to delete."
+          fi
           
       - name: Build Repo Database
         uses: ./.github/actions/archlinux
@@ -167,6 +179,7 @@ jobs:
           GPG_FILE_PASSWORD: ${{ secrets.GPG_FILE_PASSWORD }}
           GPGKEY: ${{ needs.analyze.outputs.enc-gpg }}
           GPG_KEY_PASSWORD: ${{ secrets.GPG_KEY_PASSWORD }}
+          REPO_NAME: ${{ needs.analyze.outputs.repo-name }}
         with:
           run: repo-add -s -q --nocolor -n -R ${{ needs.analyze.outputs.repo-name }}.db.tar.gz *.pkg.tar.zst
           
