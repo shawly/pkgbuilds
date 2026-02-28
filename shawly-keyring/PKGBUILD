@@ -1,6 +1,6 @@
 # Contributor: shawly
 pkgname=shawly-keyring
-pkgver=20260125000000
+pkgver=20260125095851
 pkgrel=1
 pkgdesc="Keyring for shawly's PKGBUILDs repository"
 arch=(any)
@@ -12,7 +12,7 @@ sha256sums=(SKIP)
 depends=()
 
 pkgver() {
-  date --date "`git log -1 --pretty=\"format:%ci" public.gpg`" +%Y%m%d%H%M%S
+  date --date "$(git -C "$startdir" log -1 --pretty="format:%ci" -- public.gpg)" +%Y%m%d%H%M%S
 }
 
 package() {
