@@ -62,24 +62,15 @@ jobs:
         run: pip install networkx
 
       - name: Update pkgver in PKGBUILDs
-        run: |
-           set -e
-           # Use archlinux container to run makepkg and update pkgver in PKGBUILDs
-           # We need git installed and a non-root user
-           # This is neccessary because some PKGBUILDs compute pkgver dynamically from git tags or commits
-           docker run --rm -v "$PWD":/work -w /work archlinux:base-devel /bin/bash -c '
-             pacman -Sy --noconfirm git
-             useradd -m builder
-             chown -R builder /work
-             su builder -c "git config --global --add safe.directory /work"
-             su builder -c "find . -name PKGBUILD -print0 | while IFS= read -r -d \"\" file; do
-               dir=\$(dirname \"\$file\")
-               echo \"Updating pkgver for \$dir...\"
-               (cd \"\$dir\" && makepkg --nobuild --nodeps --ignorearch || true)
-             done"
-           '
-           # Restore permissions
-           sudo chown -R $USER .
+        uses: ./.github/actions/archlinux
+        with:
+          run: |
+            git config --global --add safe.directory /github/workspace
+            find . -name PKGBUILD -print0 | while IFS= read -r -d '' file; do
+              dir=$(dirname "$file")
+              echo "Updating pkgver for $dir..."
+              (cd "$dir" && makepkg --nobuild --nodeps --ignorearch || true)
+            done
 
       - name: Determine Strategy
         id: check_publish

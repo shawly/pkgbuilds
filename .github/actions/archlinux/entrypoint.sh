@@ -30,7 +30,7 @@ if [ -d "_deps" ]; then
     find _deps -name "*.pkg.tar.zst" -exec pacman -U --noconfirm {} +
 fi
 
-sudo -u build --preserve-env=PACKAGER $@
+sudo -u build --preserve-env=PACKAGER bash -c "$*"
 
 cd "$od"
 chown -R "$og" .
