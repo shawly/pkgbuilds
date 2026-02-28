@@ -17,31 +17,9 @@ import argparse
 import glob
 import json
 import os
-import re
-import subprocess
 import sys
 
-
-def extract_pkginfo(archive_path):
-    """Extract pkgname and pkgver from a .pkg.tar.zst archive via .PKGINFO."""
-    cmd = f"tar --use-compress-program=zstd -xOf '{archive_path}' .PKGINFO"
-    try:
-        result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-        if result.returncode != 0:
-            return None, None
-    except Exception as e:
-        print(f"Failed to read {archive_path}: {e}", file=sys.stderr)
-        return None, None
-
-    name = None
-    version = None
-    for line in result.stdout.splitlines():
-        if line.startswith("pkgname = "):
-            name = line.split(" = ", 1)[1].strip()
-        elif line.startswith("pkgver = "):
-            version = line.split(" = ", 1)[1].strip()
-
-    return name, version
+from pkg_utils import extract_pkginfo
 
 
 def main():
@@ -73,7 +51,9 @@ def main():
     for archive in archives:
         filename = os.path.basename(archive)
         sig_filename = filename + ".sig"
-        name, version = extract_pkginfo(archive)
+        info = extract_pkginfo(archive)
+        name = info["name"] if info else None
+        version = info["version"] if info else None
 
         if name is None:
             print(f"  Could not read metadata from {filename}, marking for deletion", file=sys.stderr)

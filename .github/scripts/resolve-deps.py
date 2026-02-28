@@ -5,40 +5,7 @@ import sys
 import re
 import shutil
 
-
-def parse_archive_metadata(arc):
-    """
-    Extract pkgname, provides, and dependencies from a .pkg.tar.zst archive
-    by reading its .PKGINFO in a single subprocess call.
-    Returns a dict with 'name', 'provides', 'deps' or None on failure.
-    """
-    cmd = f"tar --use-compress-program=zstd -xOf '{arc}' .PKGINFO"
-    try:
-        result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-        if result.returncode != 0:
-            return None
-    except Exception as e:
-        print(f"Failed to inspect {arc}: {e}", file=sys.stderr)
-        return None
-
-    name = None
-    provides = []
-    deps = []
-
-    for line in result.stdout.splitlines():
-        if line.startswith('pkgname = '):
-            name = line.split(' = ', 1)[1].strip()
-        elif line.startswith('depend = '):
-            raw_dep = line.split(' = ', 1)[1].strip()
-            deps.append(re.split('[<>=]', raw_dep)[0])
-        elif line.startswith('provides = '):
-            raw_prov = line.split(' = ', 1)[1].strip()
-            provides.append(re.split('[<>=]', raw_prov)[0])
-
-    if not name:
-        return None
-
-    return {'name': name, 'path': arc, 'provides': provides, 'deps': deps}
+from pkg_utils import extract_pkginfo
 
 
 def resolve_and_copy_deps(pkgbuild_dir):
@@ -88,11 +55,11 @@ def resolve_and_copy_deps(pkgbuild_dir):
     meta_map = {}
 
     for arc in archives:
-        meta = parse_archive_metadata(arc)
+        meta = extract_pkginfo(arc)
         if not meta:
             continue
 
-        entry = {'path': meta['path'], 'deps': meta['deps']}
+        entry = {'path': arc, 'deps': meta['deps']}
         meta_map[meta['name']] = entry
         for prov in meta['provides']:
             if prov not in meta_map:
