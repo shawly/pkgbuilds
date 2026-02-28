@@ -12,7 +12,9 @@ sha256sums=(SKIP)
 depends=()
 
 pkgver() {
-  date --date "$(git -C "$startdir" log -1 --pretty="format:%ci" -- public.gpg)" +%Y%m%d%H%M%S
+  local created
+  created=$(gpg --show-keys --with-colons "$startdir/public.gpg" | awk -F: '$1 == "pub" {print $6; exit}')
+  date -d "@$created" +%Y%m%d%H%M%S
 }
 
 package() {
