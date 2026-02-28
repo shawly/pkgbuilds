@@ -16,3 +16,9 @@
 [submodule "steamtinkerlaunch"]
 	path = steamtinkerlaunch
 	url = https://aur.archlinux.org/steamtinkerlaunch-git.git
+[submodule "gamescope-session-git"]
+	path = gamescope-session-git
+	url = https://aur.archlinux.org/gamescope-session-git.git
+[submodule "gamescope-session-steam-git"]
+	path = gamescope-session-steam-git
+	url = https://aur.archlinux.org/gamescope-session-steam-git.git
