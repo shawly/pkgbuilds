@@ -59,12 +59,9 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
         continue-on-error: true
 
-      - name: Install zstd
+      - name: Install Python Dependencies
         if: steps.check_deps.outputs.has_local_deps == 'true'
-        run: |
-          if ! command -v zstd &>/dev/null; then
-            sudo apt-get update -qq && sudo apt-get install -y -qq zstd
-          fi
+        run: pip install zstandard
 
       - name: Resolve dependencies for ${{ matrix.package }}
         if: steps.check_deps.outputs.has_local_deps == 'true'

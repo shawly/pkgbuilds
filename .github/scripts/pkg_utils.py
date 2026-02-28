@@ -2,9 +2,12 @@
 Shared utilities for parsing Arch Linux package archives.
 """
 
+import io
 import re
-import subprocess
 import sys
+import tarfile
+
+import zstandard
 
 
 def extract_pkginfo(archive_path):
@@ -14,21 +17,31 @@ def extract_pkginfo(archive_path):
     Returns a dict with keys: 'name', 'version', 'provides', 'deps'
     or None on failure.
     """
-    cmd = ["tar", "--use-compress-program=zstd", "-xOf", archive_path, ".PKGINFO"]
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        if result.returncode != 0:
-            return None
+        with open(archive_path, "rb") as fh:
+            dctx = zstandard.ZstdDecompressor()
+            with dctx.stream_reader(fh) as reader:
+                with tarfile.open(fileobj=reader, mode="r|") as tar:
+                    for member in tar:
+                        if member.name == ".PKGINFO":
+                            f = tar.extractfile(member)
+                            if f:
+                                content = f.read().decode("utf-8", errors="ignore")
+                                return _parse_pkginfo(content)
     except Exception as e:
         print(f"Failed to read {archive_path}: {e}", file=sys.stderr)
-        return None
 
+    return None
+
+
+def _parse_pkginfo(content):
+    """Parse .PKGINFO content into a metadata dict."""
     name = None
     version = None
     provides = []
     deps = []
 
-    for line in result.stdout.splitlines():
+    for line in content.splitlines():
         if line.startswith("pkgname = "):
             name = line.split(" = ", 1)[1].strip()
         elif line.startswith("pkgver = "):
