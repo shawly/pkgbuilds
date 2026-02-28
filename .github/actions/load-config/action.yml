@@ -27,12 +27,7 @@ runs:
       shell: bash
       run: |
         set_output () {
-          if [[ -z "${ACT}" ]]; then
-            echo "${1}=${2}" | tee -a "${GITHUB_OUTPUT}"
-          else
-            echo "set-output name=${1}::${2}"
-            echo "::set-output name=${1}::${2}"
-          fi
+          echo "${1}=${2}" | tee -a "${GITHUB_OUTPUT}"
         }
         getVal(){
           if [ ! -f config.json ]; then
@@ -54,12 +49,4 @@ runs:
     - id: packager
       shell: bash
       run: |
-        set_output () {
-          if [[ -z "${ACT}" ]]; then
-            echo "${1}=${2}" | tee -a "${GITHUB_OUTPUT}"
-          else
-            echo "set-output name=${1}::${2}"
-            echo "::set-output name=${1}::${2}"
-          fi
-        }
-        set_output packager "${{ steps.config.outputs.name }} <${{ steps.config.outputs.email }}>"
+        echo "packager=${{ steps.config.outputs.name }} <${{ steps.config.outputs.email }}>" | tee -a "${GITHUB_OUTPUT}"
