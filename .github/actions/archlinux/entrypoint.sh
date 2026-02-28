@@ -7,13 +7,13 @@ og=$(stat -c '%u:%g' .)
 od=$(pwd)
 chown -R build: .
 
-if [ ! -z "${GPG_FILE_PASSWORD}" ]; then
-openssl aes-256-cbc -d -a -pbkdf2 -in ${GPGKEY} -pass pass:${GPG_FILE_PASSWORD} | sudo -u build gpg --import
+if [ -n "${GPG_FILE_PASSWORD}" ]; then
+openssl aes-256-cbc -d -a -pbkdf2 -in "${GPGKEY}" -pass "pass:${GPG_FILE_PASSWORD}" | sudo -u build gpg --import
 unset GPGKEY
 unset GPG_FILE_PASSWORD
 fi
 
-if [ ! -z "${GPG_KEY_PASSWORD}" ]; then
+if [ -n "${GPG_KEY_PASSWORD}" ]; then
     echo "allow-preset-passphrase" | sudo -u build tee -a /home/build/.gnupg/gpg-agent.conf
     sudo -u build gpg-connect-agent reloadagent /bye
     KGRIPS=$(sudo -u build gpg --list-secret-keys --with-colons --with-keygrip | awk -F: '$1 == "grp" {print $10}')
@@ -23,7 +23,7 @@ if [ ! -z "${GPG_KEY_PASSWORD}" ]; then
     unset GPG_KEY_PASSWORD
 fi
 
-cd $1
+cd "$1"
 shift
 
 if [ -d "_deps" ]; then
