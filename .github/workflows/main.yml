@@ -29,7 +29,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  build-image:
+    if: github.event_name != 'pull_request'
+    uses: ./.github/workflows/docker.yml
+    permissions:
+      packages: write
+
   analyze:
+    needs: build-image
+    if: always()
     runs-on: ubuntu-latest
     outputs:
       levels: ${{ steps.manager.outputs.levels }}

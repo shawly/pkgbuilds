@@ -10,7 +10,7 @@ inputs:
     required: true
 runs:
   using: docker
-  image: Dockerfile
+  image: docker://ghcr.io/shawly/pkgbuilds-archlinux:latest
   args:
     - ${{ inputs.dir }}
     - ${{ inputs.run }}
