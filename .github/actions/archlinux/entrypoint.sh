@@ -27,7 +27,9 @@ cd "$1"
 shift
 
 if [ -d "_deps" ]; then
-	find _deps -name "*.pkg.tar.zst" -exec pacman -U --noconfirm {} +
+	while IFS= read -r -d '' dep_pkg; do
+		pacman -U --noconfirm "${dep_pkg}"
+	done < <(find _deps -type f -name "*.pkg.tar.zst" -print0 | sort -zu)
 fi
 
 sudo -u build --preserve-env=PACKAGER bash -c "$*"
