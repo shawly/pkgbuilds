@@ -108,8 +108,9 @@ jobs:
     needs: updateExpiry
     if: ${{ needs.updateExpiry.outputs.update == 'true' }}
     steps:
+      - uses: actions/checkout@v6
       - name: Trigger Full Rebuild
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh workflow run main.yml --ref master -f force_rebuild=true
+          gh workflow run main.yml --repo "$GITHUB_REPOSITORY" --ref master -f force_rebuild=true
