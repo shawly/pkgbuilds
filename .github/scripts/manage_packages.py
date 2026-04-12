@@ -65,7 +65,7 @@ def build_graph(repo_root):
     dir_to_ver = {}
     
     # 1. Find all PKGBUILDs
-    pkgbuilds = glob.glob(os.path.join(repo_root, '**', 'PKGBUILD'), recursive=True)
+    pkgbuilds = glob.glob(os.path.join(repo_root, '*', 'PKGBUILD'))
     
     # 2. Parse all packages
     dir_deps_map = {}
