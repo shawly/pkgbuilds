@@ -1,0 +1,71 @@
+name: Security Scan
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: read
+
+jobs:
+  scan-pkgbuilds:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache traur binary
+        id: cache-traur
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo-traur
+          key: traur-${{ runner.os }}-v0.4.1
+
+      - name: Build traur
+        if: steps.cache-traur.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 https://github.com/Sohimaster/traur /tmp/traur
+          cd /tmp/traur
+          cargo build --release
+          mkdir -p ~/.cargo-traur/bin ~/.cargo-traur/share
+          cp target/release/traur ~/.cargo-traur/bin/
+          cp data/patterns.toml ~/.cargo-traur/share/
+
+      - name: Install traur
+        run: |
+          sudo install -Dm755 ~/.cargo-traur/bin/traur /usr/bin/traur
+          sudo install -Dm644 ~/.cargo-traur/share/patterns.toml /usr/share/traur/patterns.toml
+
+      - name: Scan PKGBUILDs
+        run: |
+          exit_code=0
+          failed_packages=""
+          
+          while IFS= read -r -d '' pkgbuild; do
+            pkg_dir=$(dirname "$pkgbuild")
+            pkg_name=$(basename "$pkg_dir")
+            
+            echo "::group::Scanning $pkg_name"
+            if ! traur scan --pkgbuild "$pkgbuild" --verbose; then
+              exit_code=1
+              failed_packages="$failed_packages $pkg_name"
+              echo "::error::$pkg_name rated SUSPICIOUS or MALICIOUS by traur"
+            fi
+            echo "::endgroup::"
+          done < <(find . -name PKGBUILD -not -path './.github/*' -print0)
+          
+          if [ $exit_code -ne 0 ]; then
+            echo ""
+            echo "::error::Security scan failed for:$failed_packages"
+          else
+            echo ""
+            echo "All PKGBUILDs passed security scan"
+          fi
+          
+          exit $exit_code
