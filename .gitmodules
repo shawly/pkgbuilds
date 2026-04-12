@@ -22,3 +22,27 @@
 [submodule "gamescope-session-steam-git"]
 	path = gamescope-session-steam-git
 	url = https://aur.archlinux.org/gamescope-session-steam-git.git
+[submodule "autojump"]
+	path = autojump
+	url = https://aur.archlinux.org/autojump.git
+[submodule "bridge-utils"]
+	path = bridge-utils
+	url = https://aur.archlinux.org/bridge-utils.git
+[submodule "byobu"]
+	path = byobu
+	url = https://aur.archlinux.org/byobu.git
+[submodule "eontimer-bin"]
+	path = eontimer-bin
+	url = https://aur.archlinux.org/eontimer-bin.git
+[submodule "openboardview"]
+	path = openboardview
+	url = https://aur.archlinux.org/openboardview.git
+[submodule "paru-git"]
+	path = paru-git
+	url = https://aur.archlinux.org/paru-git.git
+[submodule "pokefinder"]
+	path = pokefinder
+	url = https://aur.archlinux.org/pokefinder.git
+[submodule "waydroid-helper"]
+	path = waydroid-helper
+	url = https://aur.archlinux.org/waydroid-helper.git
