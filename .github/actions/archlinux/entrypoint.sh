@@ -26,6 +26,20 @@ fi
 cd "$1"
 shift
 
+# Import upstream PGP keys if validpgpkeys exists
+if [ -f PKGBUILD ] && grep -q 'validpgpkeys' PKGBUILD; then
+	mapfile -t pgpkeys < <(bash -c 'source PKGBUILD 2>/dev/null && printf "%s\n" "${validpgpkeys[@]}"')
+	if [ ${#pgpkeys[@]} -gt 0 ]; then
+		for key in "${pgpkeys[@]}"; do
+			[ -z "$key" ] && continue
+			echo "Importing PGP key: $key"
+			sudo -u build gpg --keyserver keyserver.ubuntu.com --recv-keys "$key" || \
+			sudo -u build gpg --keyserver keys.openpgp.org --recv-keys "$key" || \
+			echo "Warning: Failed to import key $key"
+		done
+	fi
+fi
+
 if [ -d "_deps" ]; then
 	while IFS= read -r -d '' dep_pkg; do
 		pacman -U --noconfirm "${dep_pkg}"
