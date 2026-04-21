@@ -50,7 +50,7 @@ jobs:
 
       - name: Get current packages
         if: steps.check_deps.outputs.has_local_deps == 'true'
-        uses: robinraju/release-downloader@v1.12
+        uses: robinraju/release-downloader@v1.13
         with:
           latest: true
           fileName: '*.pkg.*'
