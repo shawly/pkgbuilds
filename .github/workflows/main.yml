@@ -12,10 +12,30 @@ on:
         required: false
         default: false
         type: boolean
+      packages:
+        description: 'Comma-separated package folders to rebuild (optional)'
+        required: false
+        default: ''
+        type: string
+      include_dependents:
+        description: 'Include local dependents of selected packages'
+        required: false
+        default: false
+        type: boolean
   workflow_call:
     inputs:
       force_rebuild:
         description: 'Rebuild all packages'
+        required: false
+        default: false
+        type: boolean
+      packages:
+        description: 'Comma-separated package folders to rebuild (optional)'
+        required: false
+        default: ''
+        type: string
+      include_dependents:
+        description: 'Include local dependents of selected packages'
         required: false
         default: false
         type: boolean
@@ -83,14 +103,30 @@ jobs:
 
       - name: Analyze Changes
         id: manager
+        env:
+          PACKAGES_INPUT: ${{ inputs.packages }}
+          FORCE_REBUILD_INPUT: ${{ inputs.force_rebuild }}
+          INCLUDE_DEPENDENTS_INPUT: ${{ inputs.include_dependents }}
         run: |
           set -e
-          FORCE_FLAG=""
-          if [[ "${{ inputs.force_rebuild }}" == "true" ]]; then
-            FORCE_FLAG="--force"
+          PACKAGES_TRIMMED="${PACKAGES_INPUT#"${PACKAGES_INPUT%%[![:space:]]*}"}"
+          PACKAGES_TRIMMED="${PACKAGES_TRIMMED%"${PACKAGES_TRIMMED##*[![:space:]]}"}"
+          MANUAL_SELECTION=false
+          if [[ -n "$PACKAGES_TRIMMED" ]]; then
+            MANUAL_SELECTION=true
           fi
-          
-          python3 .github/scripts/manage_packages.py $FORCE_FLAG --repo-name "${{ steps.config.outputs.repo-name }}"
+
+          ARGS=(--repo-name "${{ steps.config.outputs.repo-name }}")
+          if [[ "$FORCE_REBUILD_INPUT" == "true" ]]; then
+            ARGS=(--force "${ARGS[@]}")
+          elif [[ "$MANUAL_SELECTION" == "true" ]]; then
+            ARGS+=(--packages "$PACKAGES_TRIMMED")
+            if [[ "$INCLUDE_DEPENDENTS_INPUT" == "true" ]]; then
+              ARGS+=(--include-dependents)
+            fi
+          fi
+
+          python3 .github/scripts/manage_packages.py "${ARGS[@]}"
           
           # Validate outputs were set
           if [ ! -f "$GITHUB_OUTPUT" ] || ! grep -q "^levels=" "$GITHUB_OUTPUT"; then

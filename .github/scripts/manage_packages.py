@@ -155,6 +155,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--force', action='store_true', help="Rebuild all packages")
     parser.add_argument('--repo-name', help="Name of the repository", required=True)
+    parser.add_argument('--packages', help="Comma-separated package folder names to build")
+    parser.add_argument('--include-dependents', action='store_true', help="Include downstream dependents of selected packages")
     args = parser.parse_args()
     
     repo_root = os.getcwd()
@@ -162,6 +164,11 @@ def main():
     # 1. Build Local Graph
     G, pkg_to_dir, dir_to_pkgs, dir_to_ver = build_graph(repo_root)
     all_local_dirs = list(G.nodes())
+    all_package_dirs = {
+        os.path.relpath(os.path.dirname(pb), repo_root)
+        for pb in glob.glob(os.path.join(repo_root, '*', 'PKGBUILD'))
+        if os.path.relpath(os.path.dirname(pb), repo_root) != '.'
+    }
     
     # 2. Download and Parse Remote DB
     db_file = "current_repo.db.tar.gz"
@@ -173,10 +180,43 @@ def main():
         
     build_queue = set()
     deletion_queue = set() # This will be pkgnames, not folders
+
+    packages_arg_provided = args.packages is not None
+    requested_folders = []
+    if packages_arg_provided:
+        requested_folders = [p.strip() for p in args.packages.split(',') if p.strip()]
     
     if args.force:
         print("Force rebuild enabled.", file=sys.stderr)
         build_queue = set(all_local_dirs)
+    elif packages_arg_provided and not requested_folders:
+        raise ValueError(
+            "--packages was provided but no valid package folder names were found after normalization. "
+            "Provide one or more comma-separated folder names (for example: --packages foo,bar)."
+        )
+    elif requested_folders:
+        invalid_folders = sorted(set(requested_folders) - all_package_dirs)
+        if invalid_folders:
+            raise ValueError(
+                f"Invalid package folders requested: {', '.join(invalid_folders)}. "
+                "Each requested folder must exist in the repo root and contain a PKGBUILD."
+            )
+
+        unparsable_folders = sorted(set(requested_folders) - set(all_local_dirs))
+        if unparsable_folders:
+            raise ValueError(
+                f"Requested package folders could not be parsed from PKGBUILD: {', '.join(unparsable_folders)}"
+            )
+
+        build_queue = set(requested_folders)
+
+        if args.include_dependents:
+            initial_selection = list(build_queue)
+            for folder in initial_selection:
+                descendants = nx.descendants(G, folder)
+                if descendants:
+                    print(f"Adding descendents of {folder} to build info: {descendants}", file=sys.stderr)
+                    build_queue.update(descendants)
     else:
         # 3. Compare Local vs Remote
         
