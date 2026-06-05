@@ -1,6 +1,3 @@
-[submodule "visual-studio-code-bin"]
-	path = visual-studio-code-bin
-	url = https://aur.archlinux.org/visual-studio-code-bin.git
 [submodule "syncthingtray-qt6"]
 	path = syncthingtray-qt6
 	url = https://aur.archlinux.org/syncthingtray-qt6.git
@@ -28,18 +25,12 @@
 [submodule "bridge-utils"]
 	path = bridge-utils
 	url = https://aur.archlinux.org/bridge-utils.git
-[submodule "byobu"]
-	path = byobu
-	url = https://aur.archlinux.org/byobu.git
 [submodule "eontimer-bin"]
 	path = eontimer-bin
 	url = https://aur.archlinux.org/eontimer-bin.git
 [submodule "openboardview"]
 	path = openboardview
 	url = https://aur.archlinux.org/openboardview.git
-[submodule "paru-git"]
-	path = paru-git
-	url = https://aur.archlinux.org/paru-git.git
 [submodule "pokefinder"]
 	path = pokefinder
 	url = https://aur.archlinux.org/pokefinder.git
