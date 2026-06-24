@@ -70,7 +70,7 @@ jobs:
       enc-gpg: ${{ steps.config.outputs.enc-gpg }}
       repo-name: ${{ steps.config.outputs.repo-name }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           submodules: recursive
@@ -160,7 +160,7 @@ jobs:
       - build-levels
     if: always() && needs.analyze.outputs.publish == 'true' && needs.analyze.outputs.target_packages != '{}' && (needs.build-levels.result == 'success' || needs.build-levels.result == 'skipped')
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       
       - name: Get current packages
         uses: robinraju/release-downloader@v1.13
