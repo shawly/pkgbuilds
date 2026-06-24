@@ -13,7 +13,7 @@ jobs:
   scan-pkgbuilds:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
 
@@ -22,7 +22,7 @@ jobs:
 
       - name: Cache traur binary
         id: cache-traur
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.cargo-traur
           key: traur-${{ runner.os }}-v0.4.1

@@ -25,7 +25,7 @@ jobs:
       pub-gpg: ${{ steps.config.outputs.pub-gpg }}
       email: ${{ steps.config.outputs.email }}
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       with:
         submodules: recursive
         ref: master
@@ -38,7 +38,7 @@ jobs:
     outputs:
       update: ${{ steps.check.outputs.update }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - id: vars
         run: |
           if [ -z "${{ secrets.GPG_FILE_PASSWORD }}" ]; then
@@ -108,7 +108,7 @@ jobs:
     needs: updateExpiry
     if: ${{ needs.updateExpiry.outputs.update == 'true' }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Trigger Full Rebuild
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
