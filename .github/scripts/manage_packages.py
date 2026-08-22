@@ -106,13 +106,19 @@ def parse_db(db_path):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--force', action='store_true', help="Rebuild all packages")
-    parser.add_argument('--repo-name', help="Name of the repository", required=True)
+    parser.add_argument('--repo-name', help="Name of the repository (required unless --dependents-of is used)")
     parser.add_argument('--packages', help="Comma-separated package folder names to build")
     parser.add_argument('--include-dependents', action='store_true', help="Include downstream dependents of selected packages")
+    parser.add_argument('--dependents-of',
+                        help="Comma-separated package folders that failed to build this run; "
+                             "print the JSON list of their local transitive dependents (folder "
+                             "names) and exit. Used by build-level.yml to skip packages whose "
+                             "local dependency closure includes an earlier level's failure, "
+                             "instead of building against a stale local archive.")
     args = parser.parse_args()
-    
+
     repo_root = os.getcwd()
-    
+
     # 1. Build Local Graph
     G, pkg_to_dir, dir_to_pkgs, dir_to_ver = build_graph(repo_root)
     all_local_dirs = list(G.nodes())
@@ -121,7 +127,27 @@ def main():
         for pb in glob.glob(os.path.join(repo_root, '*', 'PKGBUILD'))
         if os.path.relpath(os.path.dirname(pb), repo_root) != '.'
     }
-    
+
+    if args.dependents_of is not None:
+        # Read-only closure query, no DB download, no build-queue computation.
+        # Unknown folder names are ignored rather than erroring: a package
+        # that failed to build may not even be a graph node (e.g. it parsed
+        # to nothing), and the caller already knows what it asked for.
+        failed_folders = [p.strip() for p in args.dependents_of.split(',') if p.strip()]
+        affected = set()
+        for folder in failed_folders:
+            if folder in G:
+                affected.update(nx.descendants(G, folder))
+        result = sorted(affected)
+        if os.getenv('GITHUB_OUTPUT'):
+            with open(os.getenv('GITHUB_OUTPUT'), 'a') as f:
+                f.write(f"dependents={json.dumps(result)}\n")
+        print(json.dumps(result))
+        return
+
+    if not args.repo_name:
+        raise ValueError("--repo-name is required unless --dependents-of is used")
+
     # 2. Download and Parse Remote DB
     db_file = "current_repo.db.tar.gz"
     if download_db(args.repo_name, db_file):

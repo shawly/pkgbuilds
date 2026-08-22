@@ -243,3 +243,81 @@ jobs:
           file: ${{ needs.analyze.outputs.repo-name }}.db*
           file_glob: true
           overwrite: true
+
+  # Publishing already happened (or was correctly skipped) by this point;
+  # everything here is visibility, not a gate. Runs independently of
+  # update-repo so a report failure can never affect what got published.
+  report:
+    needs: [analyze, build-levels]
+    if: always() && needs.analyze.result == 'success' && needs.analyze.outputs.levels != '[]' && needs.build-levels.result != 'cancelled'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Download build result markers
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: result-*
+          merge-multiple: true
+          path: results
+
+      - name: Render summary, decide overall status
+        id: summary
+        run: |
+          set -e
+          mkdir -p results
+          {
+            echo "## Build results"
+            echo
+            echo "| Package | Status | Detail |"
+            echo "|---|---|---|"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          FAILED_MD=""
+          for f in results/*.json; do
+            [ -e "$f" ] || continue
+            pkg=$(jq -r '.package' "$f")
+            status=$(jq -r '.status' "$f")
+            reason=$(jq -r '.reason // ""' "$f")
+            echo "| $pkg | $status | $reason |" >> "$GITHUB_STEP_SUMMARY"
+            if [ "$status" != "success" ]; then
+              FAILED_MD="${FAILED_MD}- **${pkg}**: ${status}${reason:+ (${reason})}"$'\n'
+            fi
+          done
+
+          if [ -z "$FAILED_MD" ]; then
+            echo "any_failed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "any_failed=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "failed_md<<EOF"
+              printf '%s' "$FAILED_MD"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+      # Only for master pushes -- a PR's own failing checks are already the
+      # visible signal there, and opening a tracking issue per PR run would
+      # just be noise. One issue per day, updated by comment on later runs.
+      - name: Open or update tracking issue
+        if: steps.summary.outputs.any_failed == 'true' && needs.analyze.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FAILED_MD: ${{ steps.summary.outputs.failed_md }}
+        run: |
+          set -e
+          TITLE="Build failures: $(date -u +%Y-%m-%d)"
+          BODY=$(printf 'Workflow run: %s/%s/actions/runs/%s\n\n%s' \
+            "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" "$FAILED_MD")
+          EXISTING=$(gh issue list -R "$GITHUB_REPOSITORY" --state open --search "\"$TITLE\" in:title" \
+            --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" -R "$GITHUB_REPOSITORY" -b "$BODY"
+          else
+            gh issue create -R "$GITHUB_REPOSITORY" -t "$TITLE" -b "$BODY"
+          fi
+
+      - name: Fail the run if anything failed or was skipped
+        if: steps.summary.outputs.any_failed == 'true'
+        run: exit 1
