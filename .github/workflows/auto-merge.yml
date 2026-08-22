@@ -1,0 +1,47 @@
+name: Dependabot Auto-Merge Reaper
+
+on:
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Evaluate and log decisions without labeling, merging, or pushing'
+        required: false
+        default: false
+        type: boolean
+
+# Runs on schedule (or manual dispatch), never on pull_request. That is what
+# gives it a normal, writable GITHUB_TOKEN -- see merge_reaper.py's module
+# docstring for why that distinction is the entire reason this job exists
+# separately from audit.yml / build-level.yml.
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+  checks: read
+
+concurrency:
+  group: auto-merge
+  cancel-in-progress: false
+
+env:
+  MERGE_DELAY_DAYS: 3
+  AUTOMERGE_ENABLED: ${{ vars.AUTOMERGE_ENABLED || 'true' }}
+
+jobs:
+  reap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Merge eligible Dependabot PRs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ARGS=()
+          [ "${{ inputs.dry_run }}" = "true" ] && ARGS+=(--dry-run)
+          python3 .github/scripts/merge_reaper.py "${ARGS[@]}"
