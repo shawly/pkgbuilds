@@ -41,9 +41,11 @@ if [ -f PKGBUILD ] && grep -q 'validpgpkeys' PKGBUILD; then
 fi
 
 if [ -d "_deps" ]; then
-	while IFS= read -r -d '' dep_pkg; do
-		pacman -U --noconfirm "${dep_pkg}"
-	done < <(find _deps -type f -name "*.pkg.tar.zst" -print0 | sort -zu)
+	# install in a single transaction so pacman works out the order itself
+	mapfile -t -d '' dep_pkgs < <(find _deps -type f -name "*.pkg.tar.zst" -print0 | sort -zu)
+	if [ ${#dep_pkgs[@]} -gt 0 ]; then
+		pacman -U --noconfirm "${dep_pkgs[@]}"
+	fi
 fi
 
 sudo -u build --preserve-env=PACKAGER bash -c "$*"

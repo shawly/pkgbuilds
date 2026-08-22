@@ -139,13 +139,14 @@ jobs:
     if: needs.analyze.outputs.levels != '[]'
     strategy:
       max-parallel: 1
-      fail-fast: true
+      fail-fast: false
       matrix:
         level: ${{ fromJson(needs.analyze.outputs.levels) }}
     uses: ./.github/workflows/build-level.yml
     with:
       packages: ${{ toJson(fromJson(needs.analyze.outputs.level_map)[format('{0}', matrix.level)]) }}
       packages_with_local_deps: ${{ needs.analyze.outputs.packages_with_local_deps }}
+      target_packages: ${{ needs.analyze.outputs.target_packages }}
       packager: ${{ needs.analyze.outputs.packager }}
       enc_gpg: ${{ needs.analyze.outputs.enc-gpg }}
       publish: ${{ needs.analyze.outputs.publish == 'true' }}
@@ -158,7 +159,7 @@ jobs:
     needs:
       - analyze
       - build-levels
-    if: always() && needs.analyze.outputs.publish == 'true' && needs.analyze.outputs.target_packages != '{}' && (needs.build-levels.result == 'success' || needs.build-levels.result == 'skipped')
+    if: always() && needs.analyze.result == 'success' && needs.analyze.outputs.publish == 'true' && needs.analyze.outputs.target_packages != '{}' && needs.build-levels.result != 'cancelled'
     steps:
       - uses: actions/checkout@v7
       

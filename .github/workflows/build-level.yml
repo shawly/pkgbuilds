@@ -11,6 +11,11 @@ on:
         type: string
         description: 'JSON list of packages that have local dependencies'
         default: '[]'
+      target_packages:
+        required: false
+        type: string
+        description: 'JSON map of pkgname -> version representing the desired repo state'
+        default: '{}'
       packager:
         required: true
         type: string
@@ -39,7 +44,6 @@ jobs:
       - uses: actions/checkout@v7
         with:
           submodules: recursive
-          ref: master
       
       - name: Check if package has local dependencies
         id: check_deps
@@ -65,9 +69,12 @@ jobs:
 
       - name: Resolve dependencies for ${{ matrix.package }}
         if: steps.check_deps.outputs.has_local_deps == 'true'
+        env:
+          TARGET_PACKAGES: ${{ inputs.target_packages }}
         run: |
           set -e
-          python3 .github/scripts/resolve-deps.py ${{ matrix.package }}
+          python3 .github/scripts/resolve-deps.py ${{ matrix.package }} \
+            --target-packages "$TARGET_PACKAGES"
       
       - name: Build ${{ matrix.package }}
         uses: ./.github/actions/archlinux

@@ -1,73 +1,117 @@
-import os
-import subprocess
+"""
+Copy locally-built dependency archives into <pkgbuild_dir>/_deps so the build
+container can pacman -U them before running makepkg.
+
+The release holds every package ever published, including older versions of
+packages that were rebuilt since. Picking an arbitrary archive per package name
+silently builds against a stale dependency, so selection is explicit: the
+version named in the target state wins, otherwise the newest one does.
+
+Usage:
+    resolve-deps.py <pkgbuild_dir> [--target-packages '{"pkg": "1.0-1"}']
+"""
+
+import argparse
 import glob
-import sys
+import os
 import re
 import shutil
+import subprocess
+import sys
+import json
 
-from pkg_utils import extract_pkginfo
+from pkg_utils import extract_pkginfo, vercmp
 
 
-def resolve_and_copy_deps(pkgbuild_dir):
-    # 1. Ensure we are in a directory with PKGBUILD
-    if not os.path.exists(os.path.join(pkgbuild_dir, 'PKGBUILD')):
-        print(f"No PKGBUILD found in {pkgbuild_dir}.", file=sys.stderr)
-        sys.exit(1)
-
-    # 2. Get dependencies from PKGBUILD
-    print(f"Analyzing {pkgbuild_dir}/PKGBUILD...")
+def read_pkgbuild_deps(pkgbuild_dir):
+    """Return the union of depends and makedepends, stripped of version specifiers."""
     cmd = [
         'bash', '-c',
         f'cd "{pkgbuild_dir}" && source PKGBUILD && echo "${{depends[@]}} ${{makedepends[@]}}"'
     ]
     try:
         res = subprocess.run(cmd, capture_output=True, text=True, check=True)
-        raw_deps = res.stdout.strip().split()
     except subprocess.CalledProcessError as e:
         print(f"Error reading PKGBUILD: {e}", file=sys.stderr)
         sys.exit(1)
 
-    # Clean version specifiers (foo>=1.0 -> foo)
     needed = set()
-    for d in raw_deps:
-        clean = re.split('[<>=]', d)[0]
+    for dep in res.stdout.strip().split():
+        clean = re.split('[<>=]', dep)[0]
         if clean:
             needed.add(clean)
+    return needed
 
+
+def pick_archives(archives, target):
+    """Map every package name and provide to the single archive that should be used."""
+    best = {}
+
+    for archive in archives:
+        meta = extract_pkginfo(archive)
+        if not meta:
+            continue
+
+        entry = {
+            'path': archive,
+            'name': meta['name'],
+            'version': meta['version'],
+            'provides': meta['provides'],
+            'deps': meta['deps'],
+        }
+
+        current = best.get(entry['name'])
+        if current is None or _preferred(entry, current, target.get(entry['name'])):
+            best[entry['name']] = entry
+
+    # Real package names take precedence over anything merely providing them.
+    meta_map = dict(best)
+    for entry in best.values():
+        for provide in entry['provides']:
+            meta_map.setdefault(provide, entry)
+
+    return meta_map, best
+
+
+def _preferred(candidate, current, wanted_version):
+    """Should candidate replace current as the archive used for this package name?"""
+    if wanted_version is not None:
+        if candidate['version'] == wanted_version:
+            return current['version'] != wanted_version
+        if current['version'] == wanted_version:
+            return False
+    return vercmp(candidate['version'], current['version']) > 0
+
+
+def resolve_and_copy_deps(pkgbuild_dir, target):
+    if not os.path.exists(os.path.join(pkgbuild_dir, 'PKGBUILD')):
+        print(f"No PKGBUILD found in {pkgbuild_dir}.", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"Analyzing {pkgbuild_dir}/PKGBUILD...")
+    needed = read_pkgbuild_deps(pkgbuild_dir)
     if not needed:
         print("No dependencies found.")
         return
 
-    print(f"Direct dependencies: {needed}")
+    print(f"Direct dependencies: {sorted(needed)}")
 
-    # 3. Scan available package archives (single pass)
     repo_root = os.path.abspath('.')
     archives = glob.glob(os.path.join(repo_root, '*.pkg.tar.zst'))
-
     if not archives:
         print("No archives found in workspace.")
         return
 
     print(f"Scanning {len(archives)} archives in {repo_root}...")
+    meta_map, best = pick_archives(archives, target)
 
-    # Build metadata map in a single pass over all archives
-    # Maps: name/provides -> {path, deps}
-    meta_map = {}
+    skipped = len(archives) - len(best)
+    if skipped > 0:
+        print(f"Ignoring {skipped} superseded archive(s).")
 
-    for arc in archives:
-        meta = extract_pkginfo(arc)
-        if not meta:
-            continue
-
-        entry = {'path': arc, 'deps': meta['deps']}
-        meta_map[meta['name']] = entry
-        for prov in meta['provides']:
-            if prov not in meta_map:
-                meta_map[prov] = entry
-
-    # 4. Resolve transitive closure of local dependencies
-    queue = list(needed)
-    resolved_files = set()
+    # Resolve the transitive closure over the selected archives.
+    queue = sorted(needed)
+    resolved = {}
     checked = set()
 
     while queue:
@@ -76,27 +120,59 @@ def resolve_and_copy_deps(pkgbuild_dir):
             continue
         checked.add(dep_name)
 
-        if dep_name in meta_map:
-            entry = meta_map[dep_name]
-            if entry['path'] not in resolved_files:
-                resolved_files.add(entry['path'])
-                print(f"  Found dependency: {dep_name} -> {os.path.basename(entry['path'])}")
-                # Enqueue transitive dependencies
-                queue.extend(entry['deps'])
+        entry = meta_map.get(dep_name)
+        if entry is None:
+            continue
 
-    # 5. Copy resolved dependencies
-    if resolved_files:
-        deps_folder = os.path.join(pkgbuild_dir, '_deps')
-        os.makedirs(deps_folder, exist_ok=True)
-        print(f"Copying {len(resolved_files)} dependencies to {deps_folder}...")
-        for f in resolved_files:
-            shutil.copy(f, deps_folder)
-    else:
+        if entry['name'] not in resolved:
+            resolved[entry['name']] = entry
+            print(f"  Found dependency: {dep_name} -> {os.path.basename(entry['path'])}")
+            queue.extend(entry['deps'])
+
+    stale = False
+    for name, entry in sorted(resolved.items()):
+        wanted = target.get(name)
+        if wanted is not None and entry['version'] != wanted:
+            print(
+                f"  WARNING: using {name} {entry['version']} but the repo targets {wanted}; "
+                "that version was never published (its build likely failed).",
+                file=sys.stderr,
+            )
+            stale = True
+
+    if stale:
+        print(
+            "WARNING: building against stale local dependencies, this build may fail "
+            "or produce a package linked against the wrong versions.",
+            file=sys.stderr,
+        )
+
+    if not resolved:
         print("No local dependencies found to copy.")
+        return
+
+    deps_folder = os.path.join(pkgbuild_dir, '_deps')
+    os.makedirs(deps_folder, exist_ok=True)
+    print(f"Copying {len(resolved)} dependencies to {deps_folder}...")
+    for entry in resolved.values():
+        shutil.copy(entry['path'], deps_folder)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Copy local dependency archives into _deps")
+    parser.add_argument('pkgbuild_dir')
+    parser.add_argument('--target-packages', default='{}',
+                        help="JSON string of {pkgname: version} representing the desired state")
+    args = parser.parse_args()
+
+    try:
+        target = json.loads(args.target_packages or '{}')
+    except json.JSONDecodeError as e:
+        print(f"Invalid target_packages JSON: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    resolve_and_copy_deps(args.pkgbuild_dir, target)
 
 
 if __name__ == '__main__':
-    if len(sys.argv) < 2:
-        print("Usage: resolve-deps.py <pkgbuild_dir>", file=sys.stderr)
-        sys.exit(1)
-    resolve_and_copy_deps(sys.argv[1])
+    main()
