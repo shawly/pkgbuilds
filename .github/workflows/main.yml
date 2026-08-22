@@ -159,6 +159,8 @@ jobs:
     uses: ./.github/workflows/build-level.yml
     permissions:
       contents: write
+      id-token: write
+      attestations: write
     with:
       level: ${{ matrix.level }}
       packages: ${{ toJson(fromJson(needs.analyze.outputs.level_map)[format('{0}', matrix.level)]) }}
