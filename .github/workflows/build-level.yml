@@ -114,9 +114,96 @@ jobs:
           # Already zstd-compressed; zipping again buys nothing.
           compression-level: 0
 
+  # Gate 3: does the built artifact itself match the previously published
+  # one, independent of whether the PKGBUILD diff looked clean. The only gate
+  # that can catch a trojaned upstream tarball behind an honest PKGBUILD.
+  # Baseline is whatever is currently on the `repository` release -- there is
+  # no separate file to keep in sync, and a package's second build always has
+  # something to diff against.
+  inspect-artifact:
+    needs: build-package
+    if: always() && needs.build-package.result != 'cancelled'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        package: ${{ fromJson(inputs.packages) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Download the freshly built package
+        id: new
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: pkg-l${{ inputs.level }}-${{ matrix.package }}
+          path: dist-new
+
+      - name: Nothing to inspect
+        if: steps.new.outcome != 'success'
+        run: |
+          echo "No build artifact for ${{ matrix.package }} (build failed or produced nothing); skipping Gate 3."
+
+      # continue-on-error: a package built for the first time has nothing
+      # published yet, and that is a normal, expected outcome, not a failure.
+      - name: Download the currently published version
+        if: steps.new.outcome == 'success'
+        continue-on-error: true
+        uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f # v1.13
+        with:
+          latest: true
+          fileName: '${{ matrix.package }}-*.pkg.tar.zst'
+          tarBall: false
+          zipBall: false
+          out-file-path: dist-old
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install ClamAV and YARA
+        if: steps.new.outcome == 'success'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends clamav yara zstd
+
+      - name: Cache ClamAV database
+        if: steps.new.outcome == 'success'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /var/lib/clamav
+          key: clamav-db-${{ github.run_id }}
+          restore-keys: clamav-db-
+
+      - name: Update ClamAV database
+        if: steps.new.outcome == 'success'
+        run: sudo freshclam --quiet || true
+
+      - name: Run Gate 3 inspection
+        if: steps.new.outcome == 'success'
+        run: |
+          set +e
+          OLD_PKG=$(find dist-old -maxdepth 1 -name '*.pkg.tar.zst' 2>/dev/null | head -n1)
+          NEW_PKG=$(find dist-new -maxdepth 1 -name '*.pkg.tar.zst' | head -n1)
+          mkdir -p .github/security/verdicts
+          ARGS=(--package "${{ matrix.package }}" --new "$NEW_PKG"
+                --pkgbuild "${{ matrix.package }}/PKGBUILD"
+                --output ".github/security/verdicts/inspect-${{ matrix.package }}.json")
+          [ -n "$OLD_PKG" ] && ARGS+=(--old "$OLD_PKG")
+          python3 .github/scripts/inspect_artifact.py "${ARGS[@]}"
+          exit $?
+
+      - name: Upload inspect verdict
+        if: always() && steps.new.outcome == 'success'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: inspect-l${{ inputs.level }}-${{ matrix.package }}
+          path: .github/security/verdicts/inspect-${{ matrix.package }}.json
+          if-no-files-found: ignore
+          retention-days: 30
+
   # Holds the signing key. Never sources a PKGBUILD, never runs makepkg.
   sign-and-publish:
-    needs: build-package
+    needs: [build-package, inspect-artifact]
     # always(): one broken package must not stop the rest of the level from
     # being published. A cancelled run still stops here.
     if: always() && inputs.publish && needs.build-package.result != 'cancelled'
@@ -133,6 +220,33 @@ jobs:
           pattern: pkg-l${{ inputs.level }}-*
           merge-multiple: true
           path: dist
+
+      - name: Collect Gate 3 verdicts
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: inspect-l${{ inputs.level }}-*
+          merge-multiple: true
+          path: inspect-verdicts
+
+      # A block here means the artifact itself looks wrong -- do not publish
+      # it, but do not fail the other packages in this level either (R6).
+      # The old version stays live: cleanup_assets.py only removes a
+      # published asset when the target state's version for it is actually
+      # published, and it never is here.
+      - name: Drop packages Gate 3 blocked
+        run: |
+          set -e
+          mkdir -p dist inspect-verdicts
+          for f in inspect-verdicts/*.json; do
+            [ -e "$f" ] || continue
+            verdict=$(jq -r '.verdict' "$f")
+            pkg=$(jq -r '.package' "$f")
+            if [ "$verdict" = "block" ]; then
+              echo "::error::Gate 3 blocked $pkg; excluding it from this publish"
+              rm -f dist/"$pkg"-*.pkg.tar.zst*
+            fi
+          done
 
       - name: Count what actually built
         id: have
