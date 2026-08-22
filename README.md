@@ -86,6 +86,27 @@ To build AUR packages of your own selection, fork this repository.  The master b
   - Add git submodules for the AUR packages you want
   - Each time dependabot finds a submodule update, the package will be built and uploaded, and the repository updated.
 
+## Patching a submodule's PKGBUILD
+
+Submodules track their AUR repo directly, so a local edit to a checked-out
+PKGBUILD doesn't survive the next `git submodule update` and there's usually
+no push access to commit the fix upstream. For a small local change (e.g. a
+build option), add a patch instead:
+
+```bash
+cd kodi-git
+$EDITOR PKGBUILD                 # make the change
+git diff > ../patches/kodi-git/0001-renderer-gles.patch
+git checkout -- .                # leave the submodule clean, still tracking AUR
+```
+
+`patches/<pkgname>/*.patch` files are applied (in filename order, via
+`patch -p1`) to that submodule's working tree on every CI checkout, right
+before the PKGBUILD is read — see `.github/scripts/apply-patches.sh`. A
+package with no `patches/<pkgname>/` directory is unaffected. If an AUR
+update makes a patch stop applying, CI fails loudly on that package instead
+of silently building unpatched; regenerate the patch the same way.
+
 ## config.json default values (all values are optional)
 ```json
 {

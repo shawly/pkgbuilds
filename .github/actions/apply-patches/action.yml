@@ -1,0 +1,12 @@
+name: Apply Local Patches
+description: Apply patches/<pkgname>/*.patch onto AUR submodule working trees
+inputs:
+  package:
+    description: 'Package directory to patch. Empty applies to every package with a PKGBUILD.'
+    required: false
+    default: ''
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: .github/scripts/apply-patches.sh "${{ inputs.package }}"

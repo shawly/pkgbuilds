@@ -1,0 +1,13 @@
+diff --git a/PKGBUILD b/PKGBUILD
+index 1b0e13c..89abb2e 100644
+--- a/PKGBUILD
++++ b/PKGBUILD
+@@ -21,7 +21,7 @@
+ _clangbuild=
+ 
+ # define the applicaton render system, valid values are either 'gl' or 'gles'
+-_renderer=gl
++_renderer=gles
+ 
+ pkgbase=kodi-git
+ pkgname=("$pkgbase" "$pkgbase-eventclients" "$pkgbase-tools-texturepacker" "$pkgbase-dev")

@@ -80,6 +80,9 @@ jobs:
       - id: config
         uses: ./.github/actions/load-config
 
+      - name: Apply local patches
+        uses: ./.github/actions/apply-patches
+
       - name: Install Python Dependencies
         run: pip install networkx
 

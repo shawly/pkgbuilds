@@ -37,3 +37,6 @@
 [submodule "waydroid-helper"]
 	path = waydroid-helper
 	url = https://aur.archlinux.org/waydroid-helper.git
+[submodule "kodi-git"]
+	path = kodi-git
+	url = https://aur.archlinux.org/kodi-git.git

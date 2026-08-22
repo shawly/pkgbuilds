@@ -55,6 +55,11 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Apply local patches for ${{ matrix.package }}
+        uses: ./.github/actions/apply-patches
+        with:
+          package: ${{ matrix.package }}
+
       - name: Check if package has local dependencies
         id: check_deps
         run: |
