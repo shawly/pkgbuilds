@@ -1,0 +1,92 @@
+name: Audit
+
+on:
+  workflow_call:
+    outputs:
+      blocked:
+        description: 'true if any submodule was blocked by the audit'
+        value: ${{ jobs.audit.outputs.blocked }}
+
+jobs:
+  # Gate 1: diffs each submodule against the last commit trust.json accepted
+  # for it, instead of re-scanning the whole tree on every run. Runs before
+  # anything sources a PKGBUILD (main.yml's analyze job needs: this).
+  audit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    outputs:
+      blocked: ${{ steps.run.outputs.blocked }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c # stable branch, pinned
+        with:
+          # The branch name is the toolchain selector in this action; pinning
+          # to a SHA loses that, so it has to be passed explicitly.
+          toolchain: stable
+
+      - name: Cache traur binary
+        id: cache-traur
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cargo-traur
+          key: traur-${{ runner.os }}-v0.4.1
+
+      - name: Build traur
+        if: steps.cache-traur.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 https://github.com/Sohimaster/traur /tmp/traur
+          cd /tmp/traur
+          cargo build --release
+          mkdir -p ~/.cargo-traur/bin ~/.cargo-traur/share
+          cp target/release/traur ~/.cargo-traur/bin/
+          cp data/patterns.toml ~/.cargo-traur/share/
+
+      - name: Install traur
+        run: |
+          sudo install -Dm755 ~/.cargo-traur/bin/traur /usr/bin/traur
+          sudo install -Dm644 ~/.cargo-traur/share/patterns.toml /usr/share/traur/patterns.toml
+
+      # Every check here is either a plain git diff/regex (no network) or one
+      # aurweb RPC call per changed package. Nothing sources a PKGBUILD.
+      - name: Run audit
+        id: run
+        run: |
+          set +e
+          python3 .github/scripts/audit_submodule.py
+          code=$?
+          set -e
+          echo "blocked=$([ "$code" -ne 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          exit "$code"
+
+      - name: Upload verdicts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: audit-verdicts
+          path: .github/security/verdicts/*.json
+          if-no-files-found: ignore
+          retention-days: 30
+
+      # Sticky: --edit-last replaces this bot's previous comment on the same
+      # PR instead of piling one up per push, so the diff review stays
+      # readable without opening logs. continue-on-error because Dependabot
+      # PRs get a read-only token no matter what permissions: grants here, so
+      # this call is expected to fail for exactly the PRs this gate exists
+      # for; the step summary above still carries the result either way.
+      - name: Post audit summary to the PR
+        if: always() && github.event_name == 'pull_request'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          [ -s .github/security/audit-summary.md ] || exit 0
+          gh pr comment "${{ github.event.pull_request.number }}" \
+            --body-file .github/security/audit-summary.md --edit-last \
+            || gh pr comment "${{ github.event.pull_request.number }}" \
+            --body-file .github/security/audit-summary.md

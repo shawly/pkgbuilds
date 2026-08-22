@@ -1,0 +1,8 @@
+# Local DB snapshot downloaded by manage_packages.py for comparison; never
+# meant to be committed.
+current_repo.db.tar.gz
+
+# Per-run audit output. Verdicts are a workflow artifact, not repo state;
+# only trust.json (the accepted baseline) is committed.
+.github/security/verdicts/
+.github/security/audit-summary.md

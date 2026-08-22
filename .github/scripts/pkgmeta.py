@@ -98,17 +98,15 @@ def parse_srcinfo(srcinfo_path):
     }
 
 
-def read_pkgbuild_scalars(pkgbuild_path):
-    """Pull literal pkgver/pkgrel/epoch out of a PKGBUILD as text."""
-    fields = {}
-    try:
-        with open(pkgbuild_path, encoding='utf-8', errors='replace') as handle:
-            lines = handle.read().splitlines()
-    except OSError as exc:
-        print(f"Error reading {pkgbuild_path}: {exc}", file=sys.stderr)
-        return fields
+def read_pkgbuild_scalars_from_text(text):
+    """Same as read_pkgbuild_scalars, but over text already in memory.
 
-    for raw in lines:
+    Used to read pkgver/pkgrel/epoch out of a PKGBUILD revision that is not
+    checked out on disk (e.g. `git show <rev>:PKGBUILD` output), such as when
+    diffing two commits of a submodule.
+    """
+    fields = {}
+    for raw in text.splitlines():
         match = _SCALAR_ASSIGN.match(raw.rstrip())
         if not match:
             continue
@@ -121,6 +119,18 @@ def read_pkgbuild_scalars(pkgbuild_path):
         fields[key] = value
 
     return fields
+
+
+def read_pkgbuild_scalars(pkgbuild_path):
+    """Pull literal pkgver/pkgrel/epoch out of a PKGBUILD as text."""
+    try:
+        with open(pkgbuild_path, encoding='utf-8', errors='replace') as handle:
+            text = handle.read()
+    except OSError as exc:
+        print(f"Error reading {pkgbuild_path}: {exc}", file=sys.stderr)
+        return {}
+
+    return read_pkgbuild_scalars_from_text(text)
 
 
 def format_version(primary, fallback):

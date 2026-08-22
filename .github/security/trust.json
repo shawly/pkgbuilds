@@ -1,0 +1,274 @@
+{
+  "defaults": {
+    "allowed_source_hosts": [
+      "aur.archlinux.org",
+      "codeload.github.com",
+      "github.com",
+      "gitlab.com",
+      "objects.githubusercontent.com",
+      "sourceforge.net"
+    ],
+    "network_in_build": false
+  },
+  "packages": {
+    "autojump": {
+      "aur_comaintainers": [],
+      "aur_maintainer": "graysky",
+      "aur_pkgbase": "autojump",
+      "aur_popularity": 0.089761,
+      "aur_votes": 42,
+      "has_install_script": false,
+      "install_sha256": null,
+      "last_accepted_author_email": "therealgraysky AT proton DOT me",
+      "last_accepted_commit": "5acf74615b92361de6e575eabd06d28363f4a38d",
+      "last_accepted_pkgver": "22.5.3-11",
+      "network_in_build": false,
+      "source_hosts": [
+        "github.com"
+      ],
+      "validpgpkeys": [],
+      "vcs_package": false
+    },
+    "bridge-utils": {
+      "aur_comaintainers": [],
+      "aur_maintainer": "yurikoles",
+      "aur_pkgbase": "bridge-utils",
+      "aur_popularity": 4.81894,
+      "aur_votes": 23,
+      "has_install_script": false,
+      "install_sha256": null,
+      "last_accepted_author_email": "root@yurikoles.com",
+      "last_accepted_commit": "6578fca4187e37ebd4436e035dd2888989a60148",
+      "last_accepted_pkgver": "1.7.1-5",
+      "network_in_build": false,
+      "source_hosts": [
+        "mirrors.edge.kernel.org"
+      ],
+      "validpgpkeys": [
+        "9F6FC345B05BE7E766B83C8F80A77F6095CDE47E"
+      ],
+      "vcs_package": false
+    },
+    "c++utilities": {
+      "aur_comaintainers": [],
+      "aur_maintainer": "Martchus",
+      "aur_pkgbase": "c++utilities",
+      "aur_popularity": 1.422764,
+      "aur_votes": 72,
+      "has_install_script": false,
+      "install_sha256": null,
+      "last_accepted_author_email": "martchus@gmx.net",
+      "last_accepted_commit": "ee173f7a4e17e0a35a5d64e6668a5edb41e3bf84",
+      "last_accepted_pkgver": "5.35.0-1",
+      "network_in_build": false,
+      "source_hosts": [
+        "github.com"
+      ],
+      "validpgpkeys": [],
+      "vcs_package": false
+    },
+    "eontimer-bin": {
+      "aur_comaintainers": [],
+      "aur_maintainer": "INeedTogepi",
+      "aur_pkgbase": "eontimer-bin",
+      "aur_popularity": 0,
+      "aur_votes": 0,
+      "has_install_script": false,
+      "install_sha256": null,
+      "last_accepted_author_email": "INeedTogepi+aur.archlinux.org@protonmail.com",
+      "last_accepted_commit": "b059116b9396030d8d5d79558fb09882fa81ce4f",
+      "last_accepted_pkgver": "3.0.0rc.8-1",
+      "network_in_build": false,
+      "source_hosts": [
+        "github.com",
+        "raw.githubusercontent.com"
+      ],
+      "validpgpkeys": [],
+      "vcs_package": false
+    },
+    "gamescope-session-git": {
+      "aur_comaintainers": [
+        "alkazar",
+        "pastaq"
+      ],
+      "aur_maintainer": "ruineka",
+      "aur_pkgbase": "gamescope-session-git",
+      "aur_popularity": 0.002936,
+      "aur_votes": 7,
+      "has_install_script": true,
+      "install_sha256": "532018b98b5d00d5abe80c565649632503b380e36f662d2c216e4b8672168758",
+      "last_accepted_author_email": "derekjohn.clark@gmail.com",
+      "last_accepted_commit": "57f121dfaaefb8022b6f83d2ef1821e7f5fc2cd9",
+      "last_accepted_pkgver": "r339.b5c2d0d-1",
+      "network_in_build": false,
+      "source_hosts": [],
+      "validpgpkeys": [],
+      "vcs_package": true
+    },
+    "gamescope-session-steam-git": {
+      "aur_comaintainers": [],
+      "aur_maintainer": "alkazar",
+      "aur_pkgbase": "gamescope-session-steam-git",
+      "aur_popularity": 0.008735,
+      "aur_votes": 5,
+      "has_install_script": false,
+      "install_sha256": null,
+      "last_accepted_author_email": "aleshslovak@gmail.com",
+      "last_accepted_commit": "11f7efd407a59023aba5c7978cf428ccaefed0b6",
+      "last_accepted_pkgver": "r10.1a3fdb7-1",
+      "network_in_build": false,
+      "source_hosts": [
+        "github.com"
+      ],
+      "validpgpkeys": [],
+      "vcs_package": true
+    },
+    "kodi-git": {
+      "aur_comaintainers": [],
+      "aur_maintainer": "graysky",
+      "aur_pkgbase": "kodi-git",
+      "aur_popularity": 0,
+      "aur_votes": 84,
+      "has_install_script": false,
+      "install_sha256": null,
+      "last_accepted_author_email": "therealgraysky AT proton DOT me",
+      "last_accepted_commit": "0fbf9bd6f3153401ecabfbd6c29488522ec9322e",
+      "last_accepted_pkgver": "r72345.d81c9184b1a-1",
+      "network_in_build": false,
+      "source_hosts": [
+        "ffmpeg.org",
+        "github.com",
+        "mirrors.kodi.tv"
+      ],
+      "validpgpkeys": [],
+      "vcs_package": true
+    },
+    "openboardview": {
+      "aur_comaintainers": [],
+      "aur_maintainer": "freswa",
+      "aur_pkgbase": "openboardview",
+      "aur_popularity": 0.032774,
+      "aur_votes": 8,
+      "has_install_script": false,
+      "install_sha256": null,
+      "last_accepted_author_email": "frederik@tty42.de",
+      "last_accepted_commit": "7b3fedcf427e7b90df141a1f3036b645b3f77a85",
+      "last_accepted_pkgver": "10.0.0-1",
+      "network_in_build": false,
+      "source_hosts": [
+        "github.com"
+      ],
+      "validpgpkeys": [],
+      "vcs_package": false
+    },
+    "pokefinder": {
+      "aur_comaintainers": [
+        "R0dn3yS"
+      ],
+      "aur_maintainer": "phijor",
+      "aur_pkgbase": "pokefinder",
+      "aur_popularity": 0.425281,
+      "aur_votes": 3,
+      "has_install_script": false,
+      "install_sha256": null,
+      "last_accepted_author_email": "rodneymichael2002@gmail.com",
+      "last_accepted_commit": "76b66712c2ab7d04a12aa5133d76f83b52fc220e",
+      "last_accepted_pkgver": "4.3.2-2",
+      "network_in_build": false,
+      "source_hosts": [
+        "github.com"
+      ],
+      "validpgpkeys": [],
+      "vcs_package": false
+    },
+    "qtforkawesome-qt6": {
+      "aur_comaintainers": [],
+      "aur_maintainer": "Martchus",
+      "aur_pkgbase": "qtforkawesome-qt6",
+      "aur_popularity": 0.278568,
+      "aur_votes": 20,
+      "has_install_script": false,
+      "install_sha256": null,
+      "last_accepted_author_email": "martchus@gmx.net",
+      "last_accepted_commit": "845544e2026236706af383d321821ee37f4d9412",
+      "last_accepted_pkgver": "0.3.4-1",
+      "network_in_build": false,
+      "source_hosts": [
+        "github.com"
+      ],
+      "validpgpkeys": [],
+      "vcs_package": false
+    },
+    "qtutilities-qt6": {
+      "aur_comaintainers": [],
+      "aur_maintainer": "Martchus",
+      "aur_pkgbase": "qtutilities-qt6",
+      "aur_popularity": 1.21419,
+      "aur_votes": 22,
+      "has_install_script": false,
+      "install_sha256": null,
+      "last_accepted_author_email": "martchus@gmx.net",
+      "last_accepted_commit": "abde86c83808c1ea6fafe999239d79f44092f776",
+      "last_accepted_pkgver": "6.22.0-1",
+      "network_in_build": false,
+      "source_hosts": [
+        "github.com"
+      ],
+      "validpgpkeys": [],
+      "vcs_package": false
+    },
+    "steamtinkerlaunch": {
+      "aur_comaintainers": [],
+      "aur_maintainer": "npil",
+      "aur_pkgbase": "steamtinkerlaunch-git",
+      "aur_popularity": 0.654365,
+      "aur_votes": 6,
+      "has_install_script": false,
+      "install_sha256": null,
+      "last_accepted_author_email": "n.pliky@gmail.com",
+      "last_accepted_commit": "9fac6b54b02eac37444f75cb6876bc9830979b5c",
+      "last_accepted_pkgver": "12.12.r278.g8550ab2-1",
+      "network_in_build": false,
+      "source_hosts": [
+        "github.com"
+      ],
+      "validpgpkeys": [],
+      "vcs_package": false
+    },
+    "syncthingtray-qt6": {
+      "aur_comaintainers": [],
+      "aur_maintainer": "Martchus",
+      "aur_pkgbase": "syncthingtray-qt6",
+      "aur_popularity": 4.729273,
+      "aur_votes": 55,
+      "has_install_script": false,
+      "install_sha256": null,
+      "last_accepted_author_email": "martchus@gmx.net",
+      "last_accepted_commit": "87df10a2af766af129063d4f303835605faf8632",
+      "last_accepted_pkgver": "2.1.4-1",
+      "network_in_build": false,
+      "source_hosts": [
+        "github.com"
+      ],
+      "validpgpkeys": [],
+      "vcs_package": false
+    },
+    "waydroid-helper": {
+      "aur_comaintainers": [],
+      "aur_maintainer": "Rikka",
+      "aur_pkgbase": "waydroid-helper",
+      "aur_popularity": 0.924529,
+      "aur_votes": 10,
+      "has_install_script": false,
+      "install_sha256": null,
+      "last_accepted_author_email": "ayasa0520@gmail.com",
+      "last_accepted_commit": "38cfe7b13e8435e1883db0cfd631906e07b02fcb",
+      "last_accepted_pkgver": "0.2.9-1",
+      "network_in_build": false,
+      "source_hosts": [],
+      "validpgpkeys": [],
+      "vcs_package": false
+    }
+  },
+  "version": 1
+}

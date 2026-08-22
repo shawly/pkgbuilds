@@ -55,9 +55,18 @@ jobs:
       contents: read
       packages: write
 
+  # Gate 1. Nothing below this sources a PKGBUILD until it passes.
+  audit:
+    uses: ./.github/workflows/audit.yml
+    permissions:
+      contents: read
+      pull-requests: write
+
   analyze:
-    needs: build-image
-    if: always()
+    needs: [build-image, audit]
+    # always(): build-image is skipped (not failed) on pull_request, and that
+    # must not stop analyze. A real audit failure is checked explicitly below.
+    if: always() && needs.audit.result != 'failure'
     runs-on: ubuntu-latest
     permissions:
       contents: read
