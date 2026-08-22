@@ -40,9 +40,8 @@ on:
         default: false
         type: boolean
 
-permissions:
-  packages: write
-  contents: write
+# Deny by default; every job declares the minimum it needs.
+permissions: {}
 
 concurrency:
   group: "build-${{ github.ref }}"
@@ -53,12 +52,15 @@ jobs:
     if: github.event_name != 'pull_request'
     uses: ./.github/workflows/docker.yml
     permissions:
+      contents: read
       packages: write
 
   analyze:
     needs: build-image
     if: always()
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       levels: ${{ steps.manager.outputs.levels }}
       level_map: ${{ steps.manager.outputs.level_map }}
@@ -70,7 +72,7 @@ jobs:
       enc-gpg: ${{ steps.config.outputs.enc-gpg }}
       repo-name: ${{ steps.config.outputs.repo-name }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           submodules: recursive
@@ -143,6 +145,8 @@ jobs:
       matrix:
         level: ${{ fromJson(needs.analyze.outputs.levels) }}
     uses: ./.github/workflows/build-level.yml
+    permissions:
+      contents: write
     with:
       packages: ${{ toJson(fromJson(needs.analyze.outputs.level_map)[format('{0}', matrix.level)]) }}
       packages_with_local_deps: ${{ needs.analyze.outputs.packages_with_local_deps }}
@@ -156,15 +160,17 @@ jobs:
 
   update-repo:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     needs:
       - analyze
       - build-levels
     if: always() && needs.analyze.result == 'success' && needs.analyze.outputs.publish == 'true' && needs.analyze.outputs.target_packages != '{}' && needs.build-levels.result != 'cancelled'
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       
       - name: Get current packages
-        uses: robinraju/release-downloader@v1.13
+        uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f # v1.13
         with:
           latest: true
           fileName: '*.pkg.*'
@@ -217,7 +223,7 @@ jobs:
           run: repo-add -s -q --nocolor -n -R ${{ needs.analyze.outputs.repo-name }}.db.tar.gz *.pkg.tar.zst
           
       - name: Upload new repo db
-        uses: svenstaro/upload-release-action@v2
+        uses: svenstaro/upload-release-action@29e53e917877a24fad85510ded594ab3c9ca12de # 2.11.5
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           tag: repository

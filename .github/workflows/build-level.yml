@@ -41,7 +41,7 @@ jobs:
       matrix:
         package: ${{ fromJson(inputs.packages) }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: recursive
       
@@ -54,7 +54,7 @@ jobs:
 
       - name: Get current packages
         if: steps.check_deps.outputs.has_local_deps == 'true'
-        uses: robinraju/release-downloader@v1.13
+        uses: robinraju/release-downloader@28fc21f50d76778e7023361aa1f863e717d3d56f # v1.13
         with:
           latest: true
           fileName: '*.pkg.*'
@@ -92,7 +92,7 @@ jobs:
           
       - name: Upload new package ${{ matrix.package }}
         if: inputs.publish
-        uses: svenstaro/upload-release-action@v2
+        uses: svenstaro/upload-release-action@29e53e917877a24fad85510ded594ab3c9ca12de # 2.11.5
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           tag: repository

@@ -10,7 +10,10 @@ inputs:
     required: true
 runs:
   using: docker
-  image: docker://ghcr.io/shawly/pkgbuilds-archlinux:latest
+  # Pinned by digest: this container runs third-party build code with the
+  # signing key in scope, so a mutable tag is not acceptable here.
+  # Bump this whenever Dockerfile/entrypoint.sh change, in the same PR.
+  image: docker://ghcr.io/shawly/pkgbuilds-archlinux@sha256:391782f1d1bf0c29ca44703b12801a8a0c59d3f3d949e199d344362fdb80335f
   args:
     - ${{ inputs.dir }}
     - ${{ inputs.run }}

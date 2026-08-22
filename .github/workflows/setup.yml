@@ -28,7 +28,7 @@ jobs:
       has-token: ${{ steps.get-key.outputs.has_token }}
       generate: ${{ steps.get-key.outputs.generate }}
     steps:
-    - uses: actions/checkout@v7
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         submodules: recursive
         ref: master
@@ -66,7 +66,7 @@ jobs:
     needs: variables
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v7
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
     - name: Set secrets
       env:
         GITHUB_TOKEN: ${{ secrets.REPO_TOKEN }}
@@ -86,7 +86,7 @@ jobs:
     needs: variables
     if: ${{ needs.variables.outputs.generate == 'true' }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Generate GPG Key
         env:
           GPG_PASSWORD: ${{ secrets.GPG_KEY_PASSWORD }}
