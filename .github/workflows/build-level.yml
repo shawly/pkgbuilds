@@ -298,6 +298,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -372,6 +374,19 @@ jobs:
               --pinentry-mode loopback --passphrase-fd 0 --detach-sign "${pkg}"
             gpg --verify "${pkg}.sig" "${pkg}"
           done
+
+      # Binds each published package to the exact workflow run, commit, and
+      # runner that built it (Sigstore-backed SLSA build provenance), so
+      # authenticity no longer rests on GPG key handling alone. Soft-fails on
+      # purpose: a Sigstore/OIDC hiccup here is not a reason to hold back a
+      # package that built, signed, and passed Gate 3 cleanly. Verify with
+      # `gh attestation verify <pkg>.pkg.tar.zst -R <owner>/<repo>`.
+      - name: Attest build provenance
+        if: steps.have.outputs.count != '0'
+        continue-on-error: true
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: dist/*.pkg.tar.zst
 
       - name: Upload signed packages
         if: steps.have.outputs.count != '0'

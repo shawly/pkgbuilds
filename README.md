@@ -35,6 +35,14 @@ rejecting packages after switching, the keyring is missing or not trusted:
 pacman-key --list-keys | grep -i shawly
 ```
 
+Every published package also carries a Sigstore build-provenance attestation, binding
+it to the exact workflow run, commit, and runner that built it. This is independent of
+the GPG signature above and does not require trusting the signing key at all:
+
+```bash
+gh attestation verify shawly-keyring-*.pkg.tar.zst -R shawly/pkgbuilds
+```
+
 ## Fork Instructions
 
 Follow these steps to set up your own PKGBUILDs repository:
