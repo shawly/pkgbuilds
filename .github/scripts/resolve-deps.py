@@ -14,30 +14,24 @@ Usage:
 import argparse
 import glob
 import os
-import re
 import shutil
-import subprocess
 import sys
 import json
 
 from pkg_utils import extract_pkginfo, vercmp
+from pkgmeta import dep_name, get_pkg_info
 
 
 def read_pkgbuild_deps(pkgbuild_dir):
     """Return the union of depends and makedepends, stripped of version specifiers."""
-    cmd = [
-        'bash', '-c',
-        f'cd "{pkgbuild_dir}" && source PKGBUILD && echo "${{depends[@]}} ${{makedepends[@]}}"'
-    ]
-    try:
-        res = subprocess.run(cmd, capture_output=True, text=True, check=True)
-    except subprocess.CalledProcessError as e:
-        print(f"Error reading PKGBUILD: {e}", file=sys.stderr)
+    info = get_pkg_info(os.path.join(pkgbuild_dir, 'PKGBUILD'))
+    if info is None:
+        print(f"Error reading metadata for {pkgbuild_dir}", file=sys.stderr)
         sys.exit(1)
 
     needed = set()
-    for dep in res.stdout.strip().split():
-        clean = re.split('[<>=]', dep)[0]
+    for dep in info.get('depends', []) + info.get('makedepends', []):
+        clean = dep_name(dep)
         if clean:
             needed.add(clean)
     return needed
@@ -115,18 +109,18 @@ def resolve_and_copy_deps(pkgbuild_dir, target):
     checked = set()
 
     while queue:
-        dep_name = queue.pop(0)
-        if dep_name in checked:
+        wanted = queue.pop(0)
+        if wanted in checked:
             continue
-        checked.add(dep_name)
+        checked.add(wanted)
 
-        entry = meta_map.get(dep_name)
+        entry = meta_map.get(wanted)
         if entry is None:
             continue
 
         if entry['name'] not in resolved:
             resolved[entry['name']] = entry
-            print(f"  Found dependency: {dep_name} -> {os.path.basename(entry['path'])}")
+            print(f"  Found dependency: {wanted} -> {os.path.basename(entry['path'])}")
             queue.extend(entry['deps'])
 
     stale = False

@@ -2,61 +2,13 @@ import os
 import sys
 import json
 import argparse
-import subprocess
 import glob
 import urllib.request
 import tarfile
 from collections import defaultdict
 import networkx as nx
 
-def get_pkg_info(pkgbuild_path):
-    """
-    Source the PKGBUILD and extract pkgname, version, depends, and makedepends using JSON output.
-    """
-    cwd = os.path.dirname(pkgbuild_path)
-    if not cwd:
-        cwd = '.'
-        
-    # We constructs a bash command to source the PKGBUILD and output a JSON object.
-    # We utilize jq to create the JSON structure safely.
-    bash_compat_script = f"""
-    source "{os.path.basename(pkgbuild_path)}" || true
-
-    # Create JSON using jq. 
-    # bash arrays (pkgname, depends, makedepends) are passed as space-separated strings, then split by jq.
-    # We use --arg to safely pass variables.
-    
-    jq -n \\
-      --arg pkgname "${{pkgname[*]}}" \\
-      --arg version "${{epoch:+${{epoch}}:}}${{pkgver}}-${{pkgrel}}" \\
-      --arg depends "${{depends[*]}}" \\
-      --arg makedepends "${{makedepends[*]}}" \\
-      '{{
-        pkgname: ($pkgname | split(" ") | map(select(length > 0))),
-        version: $version,
-        depends: ($depends | split(" ") | map(select(length > 0))),
-        makedepends: ($makedepends | split(" ") | map(select(length > 0)))
-      }}'
-    """
-    
-    cmd = ['bash', '-c', bash_compat_script]
-    
-    try:
-        if not os.path.exists(pkgbuild_path):
-            print(f"Skipping {pkgbuild_path}: File not found", file=sys.stderr)
-            return None
-            
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True, cwd=cwd)
-        # Parse the JSON output directly
-        return json.loads(result.stdout)
-        
-    except subprocess.CalledProcessError as e:
-        print(f"Error executing bash script for {pkgbuild_path}: {e}", file=sys.stderr)
-        return None
-    except json.JSONDecodeError as e:
-        print(f"Error parsing JSON from {pkgbuild_path}: {e}", file=sys.stderr)
-        print(f"Output was: {result.stdout}", file=sys.stderr)
-        return None
+from pkgmeta import get_pkg_info
 
 def build_graph(repo_root):
     G = nx.DiGraph()

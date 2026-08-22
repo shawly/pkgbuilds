@@ -8,16 +8,31 @@ Use GitHub Actions for building and packaging a few [AUR](https://aur.archlinux.
 Import the keyring:
 
 ```bash
-wget https://github.com/shawly/pkgbuilds/releases/download/repository/shawly-keyring-20260125000000-1-any.pkg.tar.zst
+curl -s https://api.github.com/repos/shawly/pkgbuilds/releases/tags/repository \
+  | grep -o 'https://[^"]*shawly-keyring-[^"]*\.pkg\.tar\.zst' \
+  | head -1 | xargs curl -LO
 sudo pacman -U shawly-keyring-*.pkg.tar.zst
 ```
+
+The keyring is rebuilt whenever the signing key changes, so the version in the
+filename moves; resolving it from the release avoids a stale URL.
 
 To use as custom repository in [Arch Linux](https://www.archlinux.org), add to file `/etc/pacman.conf`:
 
 ```
 [shawly]
-SigLevel = Optional TrustAll
+SigLevel = Required DatabaseOptional
 Server = https://github.com/shawly/pkgbuilds/releases/download/repository
+```
+
+`Required` means pacman refuses any package whose signature does not verify
+against the key from `shawly-keyring`, so import the keyring first. The older
+`SigLevel = Optional TrustAll` accepted anything the server handed out, which
+threw away the only thing the signing pipeline produces. If pacman starts
+rejecting packages after switching, the keyring is missing or not trusted:
+
+```bash
+pacman-key --list-keys | grep -i shawly
 ```
 
 ## Fork Instructions

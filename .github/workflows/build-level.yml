@@ -2,6 +2,11 @@ name: Build Level
 on:
   workflow_call:
     inputs:
+      level:
+        required: false
+        type: string
+        default: '0'
+        description: 'Dependency level being built, used to scope artifact names'
       packages:
         required: true
         type: string
@@ -28,14 +33,19 @@ on:
         default: true
 
     secrets:
+      # Only the sign job needs these, and it only runs when publishing. PR
+      # builds get no secrets from GitHub anyway.
       GPG_FILE_PASSWORD:
-        required: true
+        required: false
       GPG_KEY_PASSWORD:
-        required: true
+        required: false
 
 jobs:
+  # Runs third-party PKGBUILD code. No signing key, no write access.
   build-package:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -44,7 +54,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: recursive
-      
+
       - name: Check if package has local dependencies
         id: check_deps
         run: |
@@ -75,27 +85,93 @@ jobs:
           set -e
           python3 .github/scripts/resolve-deps.py ${{ matrix.package }} \
             --target-packages "$TARGET_PACKAGES"
-      
+
+      # Unsigned on purpose: signing happens in a job that never runs PKGBUILD
+      # code. build() and package() could otherwise export the key.
       - name: Build ${{ matrix.package }}
         uses: ./.github/actions/archlinux
         env:
           PACKAGER: ${{ inputs.packager }}
-          GPG_FILE_PASSWORD: ${{ secrets.GPG_FILE_PASSWORD }}
-          GPGKEY: ${{ inputs.enc_gpg }}
-          GPG_KEY_PASSWORD: ${{ secrets.GPG_KEY_PASSWORD }}
         with:
           dir: ${{ matrix.package }}
-          run: makepkg -sr --sign -C -c --noconfirm --noprogressbar
+          run: makepkg -sr -C -c --noconfirm --noprogressbar
 
       - name: Remove debug packages
         run: rm -f ${{ matrix.package }}/${{ matrix.package }}-debug-*.pkg.tar.zst*
-          
-      - name: Upload new package ${{ matrix.package }}
-        if: inputs.publish
+
+      - name: Hand ${{ matrix.package }} to the sign job
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pkg-l${{ inputs.level }}-${{ matrix.package }}
+          path: ${{ matrix.package }}/*.pkg.tar.zst
+          if-no-files-found: error
+          retention-days: 7
+          # Already zstd-compressed; zipping again buys nothing.
+          compression-level: 0
+
+  # Holds the signing key. Never sources a PKGBUILD, never runs makepkg.
+  sign-and-publish:
+    needs: build-package
+    # always(): one broken package must not stop the rest of the level from
+    # being published. A cancelled run still stops here.
+    if: always() && inputs.publish && needs.build-package.result != 'cancelled'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Collect built packages
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: pkg-l${{ inputs.level }}-*
+          merge-multiple: true
+          path: dist
+
+      - name: Count what actually built
+        id: have
+        run: |
+          set -e
+          mkdir -p dist
+          count=$(find dist -maxdepth 1 -type f -name '*.pkg.tar.zst' | wc -l)
+          echo "Found $count package(s) to sign."
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+
+      - name: Sign packages
+        if: steps.have.outputs.count != '0'
+        env:
+          ENC_GPG: ${{ inputs.enc_gpg }}
+          GPG_FILE_PASSWORD: ${{ secrets.GPG_FILE_PASSWORD }}
+          GPG_KEY_PASSWORD: ${{ secrets.GPG_KEY_PASSWORD }}
+        run: |
+          set -eu
+
+          if [ -z "${GPG_FILE_PASSWORD}" ] || [ -z "${GPG_KEY_PASSWORD}" ]; then
+            echo "::error::Publishing was requested but the GPG secrets are empty."
+            exit 1
+          fi
+
+          export GNUPGHOME="${RUNNER_TEMP}/gnupg"
+          mkdir -m 700 -p "${GNUPGHOME}"
+          trap 'gpgconf --kill all >/dev/null 2>&1 || true; rm -rf "${GNUPGHOME}"' EXIT
+
+          openssl aes-256-cbc -d -a -pbkdf2 -in "${ENC_GPG}" \
+            -pass "pass:${GPG_FILE_PASSWORD}" | gpg --batch --quiet --import
+
+          for pkg in dist/*.pkg.tar.zst; do
+            echo "Signing $(basename "${pkg}")"
+            printf '%s' "${GPG_KEY_PASSWORD}" | gpg --batch --yes --no-armor \
+              --pinentry-mode loopback --passphrase-fd 0 --detach-sign "${pkg}"
+            gpg --verify "${pkg}.sig" "${pkg}"
+          done
+
+      - name: Upload signed packages
+        if: steps.have.outputs.count != '0'
         uses: svenstaro/upload-release-action@29e53e917877a24fad85510ded594ab3c9ca12de # 2.11.5
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           tag: repository
-          file: ${{ matrix.package }}/*.pkg.*
+          file: dist/*.pkg.*
           file_glob: true
           overwrite: true
