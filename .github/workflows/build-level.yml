@@ -147,8 +147,8 @@ jobs:
         run: |
           set -eu
 
-          if [ -z "${GPG_FILE_PASSWORD}" ] || [ -z "${GPG_KEY_PASSWORD}" ]; then
-            echo "::error::Publishing was requested but the GPG secrets are empty."
+          if [ -z "${GPG_FILE_PASSWORD}" ]; then
+            echo "::error::Publishing was requested but GPG_FILE_PASSWORD is empty."
             exit 1
           fi
 
