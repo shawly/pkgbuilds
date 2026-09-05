@@ -20,10 +20,11 @@ Eligibility (every rule must hold, or the PR is left alone and explained):
    itself.
 3. PR age (from creation, not last push) is at least MERGE_DELAY_DAYS,
    unless the merge-now label is present (that label skips only this rule).
-4. Every check on the head commit is success or neutral -- not pending, not
-   failing, not skipped -- and checks matching each of "audit",
-   "build-package", "inspect-artifact" are actually present. This catches a
-   workflow that silently never triggered, which would otherwise look
+4. No check on the head commit is pending, failing, or cancelled, and a
+   check matching each of "audit", "build-package", "inspect-artifact" came
+   back green. Skipped checks are ignored, because several jobs skip
+   themselves on a PR by design; the required-category rule is what catches a
+   gate that silently never triggered, which would otherwise look
    indistinguishable from "nothing to report".
 5. The audit (Gate 1) and inspect (Gate 3) verdict artifacts for the head
    commit both say the literal string "pass" for this package. Rule 4 alone
@@ -95,16 +96,31 @@ def days_since(iso_ts, now):
 
 
 def parse_checks(rollup):
-    """(failing_names, missing_categories) from a gh statusCheckRollup list."""
+    """(failing_names, missing_categories) from a gh statusCheckRollup list.
+
+    SKIPPED is not a failure. This pipeline skips whole jobs on a PR by
+    design -- build-image is `if: github.event_name != 'pull_request'`,
+    sign-and-publish and update-repo are gated on publishing -- so counting
+    every skipped job as failing made every Dependabot PR permanently
+    ineligible, which is exactly the symptom this rule was supposed to avoid.
+
+    A skipped check still does not count as *present*: only a check that
+    actually came back SUCCESS or NEUTRAL marks its category seen. A gate
+    that never ran, or that was skipped away, therefore still shows up as a
+    missing category rather than silently passing.
+    """
     failing = []
     seen = {cat: False for cat in REQUIRED_CHECK_SUBSTRINGS}
     for item in rollup or []:
         name = f"{item.get('name', '')} {item.get('workflowName', '')}".lower()
         state = (item.get('conclusion') or item.get('state') or '').upper()
-        for cat in seen:
-            if cat in name:
-                seen[cat] = True
-        if state not in ('SUCCESS', 'NEUTRAL'):
+        if state in ('SUCCESS', 'NEUTRAL'):
+            for cat in seen:
+                if cat in name:
+                    seen[cat] = True
+        elif state != 'SKIPPED':
+            # Covers FAILURE, CANCELLED, TIMED_OUT, ACTION_REQUIRED and the
+            # empty string a still-running check reports.
             failing.append(item.get('name') or '?')
     missing = [cat for cat, found in seen.items() if not found]
     return failing, missing
@@ -248,13 +264,37 @@ def fetch_inspect_verdict(run_id, package):
     return doc.get('verdict') if doc else None
 
 
+LABEL_DESCRIPTIONS = {
+    'security-hold': ('B60205', 'A security gate returned block for this PR'),
+    'needs-human': ('FBCA04', 'A security gate returned review; a person has to look'),
+    'do-not-merge': ('B60205', 'Never auto-merge this PR'),
+    'merge-now': ('0E8A16', 'Skip the auto-merge age delay for this PR'),
+}
+
+
+def ensure_label_exists(name):
+    """`gh pr edit --add-label` fails outright on a label the repo does not
+    have, and run() swallows the exit code, so a missing label used to mean
+    the hold labels were silently never applied. Create on demand instead of
+    relying on someone having made them by hand."""
+    colour, description = LABEL_DESCRIPTIONS.get(name, ('EDEDED', ''))
+    run(['gh', 'label', 'create', name, '--color', colour, '--description', description])
+
+
 def sync_label(pr_number, target_label, dry_run):
     if not target_label:
         return
     print(f"PR #{pr_number}: ensuring label '{target_label}'")
     if dry_run:
         return
-    run(['gh', 'pr', 'edit', str(pr_number), '--add-label', target_label])
+    result = run(['gh', 'pr', 'edit', str(pr_number), '--add-label', target_label])
+    if result.returncode == 0:
+        return
+    ensure_label_exists(target_label)
+    result = run(['gh', 'pr', 'edit', str(pr_number), '--add-label', target_label])
+    if result.returncode != 0:
+        print(f"::warning::could not label PR #{pr_number} with '{target_label}': "
+              f"{result.stderr.strip()}", file=sys.stderr)
 
 
 def approve_and_merge(pr_number, dry_run):

@@ -142,15 +142,34 @@ def head_commit(path):
     return result.stdout.strip() or None
 
 
+def is_shallow(path):
+    return run_git(['rev-parse', '--is-shallow-repository'], cwd=path, check=False).stdout.strip() == 'true'
+
+
 def ensure_commit(path, sha):
-    """Make sure `sha` is fetchable in `path`'s local git object store."""
+    """Make sure `sha` is present in `path` *with* the history connecting it to
+    HEAD, not just as a loose object.
+
+    A shallow submodule is the trap here. `git fetch origin <sha>` succeeds in
+    a --depth=1 clone and grafts that one commit, so a naive "did the fetch
+    work" test passes -- but the commits in between are still missing, and
+    `merge-base --is-ancestor` then reports every ordinary fast-forward as a
+    rewritten history. Unshallow first whenever the repo is shallow, even if
+    the object is already there.
+    """
     if not sha:
         return False
+    if is_shallow(path):
+        # --unshallow errors out on a complete repository, hence the guard.
+        if run_git(['fetch', '--quiet', '--unshallow', 'origin'], cwd=path, check=False).returncode != 0:
+            # Deliberately not falling back to `fetch origin <sha>` here: in a
+            # shallow repo that succeeds and grafts the bare object, which is
+            # worse than failing, because the caller then cannot tell a missing
+            # middle from a rewritten history.
+            return False
     if run_git(['cat-file', '-e', f'{sha}^{{commit}}'], cwd=path, check=False).returncode == 0:
         return True
-    if run_git(['fetch', '--quiet', 'origin', sha], cwd=path, check=False).returncode == 0:
-        return True
-    return run_git(['fetch', '--quiet', '--unshallow', 'origin'], cwd=path, check=False).returncode == 0
+    return run_git(['fetch', '--quiet', 'origin', sha], cwd=path, check=False).returncode == 0
 
 
 def show_file(path, commit, filename):
@@ -186,12 +205,13 @@ def commit_author_email(path, commit):
 
 
 def remote_head_sha(path):
+    """The remote's HEAD sha, or None if it could not be fetched with enough
+    history to be compared against. None means "unknown", never "bad"."""
     result = run_git(['ls-remote', 'origin', 'HEAD'], cwd=path, check=False)
     if result.returncode != 0 or not result.stdout.strip():
         return None
     sha = result.stdout.split()[0]
-    ensure_commit(path, sha)
-    return sha
+    return sha if ensure_commit(path, sha) else None
 
 
 # --------------------------------------------------------------------------
@@ -449,8 +469,18 @@ def audit_package(pkg, path, repo_root, trust_entry, aur_info, tmp_root):
         findings.extend(check_aur_provenance(aur_info or {}, trust_entry or {}))
 
     if old_commit and changed:
-        ensure_commit(path, old_commit)
-        if is_ancestor(path, old_commit, new_commit):
+        # Without the connecting history there is nothing to compare, and
+        # claiming "history rewritten" on a shallow clone or a failed fetch
+        # would be a false accusation. Say so instead; review still keeps the
+        # PR out of auto-merge.
+        history_available = ensure_commit(path, old_commit)
+        if not history_available:
+            findings.append(Finding(
+                "commit.history_unavailable", REVIEW,
+                f"Could not fetch enough of {pkg}'s history to compare {old_commit[:10]} "
+                f"against {new_commit[:10]}",
+            ))
+        elif is_ancestor(path, old_commit, new_commit):
             count = commit_count(path, old_commit, new_commit)
             if count is not None and count > 3:
                 findings.append(Finding(
@@ -483,7 +513,8 @@ def audit_package(pkg, path, repo_root, trust_entry, aur_info, tmp_root):
         if remote_head is None:
             findings.append(Finding(
                 "commit.remote_unreachable", REVIEW,
-                "Could not verify the new commit against the AUR git remote HEAD (network error)",
+                "Could not verify the new commit against the AUR git remote HEAD "
+                "(network error, or the remote history could not be fetched)",
             ))
         elif not is_ancestor(path, new_commit, remote_head):
             findings.append(Finding(

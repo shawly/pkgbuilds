@@ -219,7 +219,21 @@ jobs:
       matrix:
         package: ${{ fromJson(inputs.packages) }}
     steps:
+      # Needs the submodules: --pkgbuild below points into the package folder,
+      # which is a submodule for every AUR package here. Without them the file
+      # is simply absent, inspect_artifact.py reads an empty PKGBUILD, and
+      # check_depends() then reports every genuinely declared new dependency
+      # as unexplained. Patches are applied for the same reason: the built
+      # package came from the patched recipe, so the diff has to be against
+      # that one.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+
+      - name: Apply local patches for ${{ matrix.package }}
+        uses: ./.github/actions/apply-patches
+        with:
+          package: ${{ matrix.package }}
 
       - name: Download the freshly built package
         id: new
