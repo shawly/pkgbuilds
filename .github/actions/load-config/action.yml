@@ -18,7 +18,8 @@ outputs:
     value: ${{ steps.config.outputs.repo_name}}
   packager: 
     description: "Packager"
-    value: ${{ steps.config.outputs.packager }}
+    # The packager string is built by the `packager` step below, not `config`.
+    value: ${{ steps.packager.outputs.packager }}
 
 runs:
   using: composite
@@ -30,16 +31,18 @@ runs:
           echo "${1}=${2}" | tee -a "${GITHUB_OUTPUT}"
         }
         getVal(){
+          # Quoted: config.json's name is "shawly (Github Actions)", and an
+          # unquoted expansion word-split it down to "shawly".
           if [ ! -f config.json ]; then
-            set_output ${1} ${2}
+            set_output "${1}" "${2}"
             return
           fi
-          val=`cat config.json | jq -r .${1}`
+          val=$(jq -r ".${1}" config.json)
           if [ "${val}" == "null" ]; then
-            set_output ${1} ${2}
+            set_output "${1}" "${2}"
             return
           fi
-          set_output ${1} $val
+          set_output "${1}" "${val}"
         }
         getVal enc_gpg key.gpg.enc
         getVal pub_gpg public.gpg

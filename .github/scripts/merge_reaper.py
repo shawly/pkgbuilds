@@ -14,7 +14,8 @@ escape-hatch table describes the labels as something "the audit" sets.
 
 Eligibility (every rule must hold, or the PR is left alone and explained):
 
-1. Author is dependabot[bot] and the head ref starts with dependabot/.
+1. Author is Dependabot (see DEPENDABOT_LOGINS -- gh spells the login
+   differently across versions) and the head ref starts with dependabot/.
 2. The PR diff touches exactly one path, and it is a submodule listed in
    .gitmodules. Never .github/, config.json, key.gpg.enc, or .gitmodules
    itself.
@@ -60,6 +61,11 @@ import tempfile
 import audit_submodule
 
 REQUIRED_CHECK_SUBSTRINGS = ("audit", "build-package", "inspect-artifact")
+# gh renders a GitHub App author's login differently depending on version:
+# 2.100 reports 'app/dependabot' where older builds reported 'dependabot[bot]'.
+# Pinning to one spelling silently made every PR ineligible on an upgrade, so
+# accept the whole set.
+DEPENDABOT_LOGINS = frozenset({'dependabot[bot]', 'app/dependabot', 'dependabot'})
 BLOCKING_LABELS = frozenset({"security-hold", "needs-human", "do-not-merge"})
 PROTECTED_PATH_PREFIXES = (".github/",)
 PROTECTED_PATHS_EXACT = frozenset({"config.json", "key.gpg.enc", ".gitmodules"})
@@ -138,7 +144,7 @@ def evaluate(pr, changed_paths, submodule_names, now, merge_delay_days, audit_ve
     reasons = []
     author = (pr.get('author') or {}).get('login', '')
     head_ref = pr.get('headRefName', '') or ''
-    if author != 'dependabot[bot]' or not head_ref.startswith('dependabot/'):
+    if author not in DEPENDABOT_LOGINS or not head_ref.startswith('dependabot/'):
         reasons.append(f"not a Dependabot submodule-bump PR (author={author!r}, head={head_ref!r})")
 
     package, err = touches_exactly_one_submodule(changed_paths, submodule_names)

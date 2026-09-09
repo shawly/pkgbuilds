@@ -150,7 +150,13 @@ jobs:
 
   build-levels:
     needs: analyze
-    if: needs.analyze.outputs.levels != '[]'
+    # always() is load-bearing. build-image is skipped on every pull_request,
+    # and a skip propagates down the whole dependency chain, not just to its
+    # direct dependents -- each downstream job has to opt back in with a
+    # status function of its own. analyze, update-repo and report all do;
+    # this one did not, so Gates 2 and 3 never once ran on a PR while the
+    # levels condition looked satisfied. Check analyze explicitly instead.
+    if: always() && needs.analyze.result == 'success' && needs.analyze.outputs.levels != '[]'
     strategy:
       max-parallel: 1
       fail-fast: false
