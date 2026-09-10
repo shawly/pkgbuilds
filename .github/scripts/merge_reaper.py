@@ -232,9 +232,16 @@ def find_run_id(sha):
 
 
 def list_artifact_names(run_id):
-    result = run(['gh', 'api', f'repos/{repo_slug()}/actions/runs/{run_id}/artifacts',
-                  '--paginate', '-f', 'per_page=100', '--jq', '.artifacts[].name'])
+    # per_page goes in the query string, not through -f: `gh api -f k=v`
+    # switches the request to POST, and POST on this endpoint is a 404. The
+    # call failed every single time, and returning [] on error made that look
+    # exactly like "this run has no artifacts", so Gate 3's verdict came back
+    # None for every PR.
+    result = run(['gh', 'api', f'repos/{repo_slug()}/actions/runs/{run_id}/artifacts?per_page=100',
+                  '--paginate', '--jq', '.artifacts[].name'])
     if result.returncode != 0:
+        print(f"::warning::could not list artifacts for run {run_id}: {result.stderr.strip()}",
+              file=sys.stderr)
         return []
     return [l for l in result.stdout.splitlines() if l]
 

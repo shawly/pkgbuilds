@@ -157,8 +157,24 @@ def parse_pkgbuild_depends(text):
 
 
 def prefix_of(path):
-    parts = path.split('/')
-    return '/'.join(parts[:3]) if len(parts) > 1 else parts[0]
+    """The directory a file lands in, capped at three components.
+
+    Deliberately the directory and not the path: for anything exactly three
+    components deep this used to return the whole thing, basename included, so
+    usr/lib/libfoo.so.1.2.3 never compared equal to the previous version's
+    usr/lib/libfoo.so.1.2.2. Every soname bump of every library package
+    therefore reported a brand new path prefix, which is `review`, which meant
+    those packages could never auto-merge.
+
+    Nothing is lost by narrowing it: a package that genuinely starts writing
+    into a tree it never touched still has a directory the old version did not
+    use, and the privileged auto-run locations are checked separately against
+    the file path itself in check_new_paths().
+    """
+    parts = path.split('/')[:-1]
+    if not parts:
+        return path
+    return '/'.join(parts[:3])
 
 
 def is_elf(path):
