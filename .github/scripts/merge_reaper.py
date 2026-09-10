@@ -35,7 +35,8 @@ Eligibility (every rule must hold, or the PR is left alone and explained):
    actually catches that case; it is stricter than the plan's table implies
    was needed, and deliberately so.
 6. No security-hold, needs-human, or do-not-merge label.
-7. mergeStateStatus is CLEAN.
+7. mergeStateStatus is CLEAN, re-read until it settles -- GitHub returns
+   UNKNOWN on a cold cache and computes the real answer in the background.
 
 On merge: approve (best-effort -- a repo that doesn't require review approval
 will just no-op here) then squash-merge with branch deletion. After every PR
@@ -57,6 +58,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 
 import audit_submodule
 
@@ -69,6 +71,8 @@ DEPENDABOT_LOGINS = frozenset({'dependabot[bot]', 'app/dependabot', 'dependabot'
 BLOCKING_LABELS = frozenset({"security-hold", "needs-human", "do-not-merge"})
 PROTECTED_PATH_PREFIXES = (".github/",)
 PROTECTED_PATHS_EXACT = frozenset({"config.json", "key.gpg.enc", ".gitmodules"})
+MERGE_STATE_ATTEMPTS = 5
+MERGE_STATE_DELAY_SECONDS = 3
 
 
 @dataclasses.dataclass
@@ -287,6 +291,32 @@ def ensure_label_exists(name):
     run(['gh', 'label', 'create', name, '--color', colour, '--description', description])
 
 
+def refresh_merge_state(pr):
+    """Resolve a mergeStateStatus of UNKNOWN by asking again.
+
+    GitHub computes mergeability lazily. The first read after a quiet period
+    returns UNKNOWN and only *starts* the background job that works the answer
+    out, so a scheduled run doing one cold `gh pr list` sees UNKNOWN for a PR
+    that is perfectly CLEAN a few seconds later. Rule 7 then rejects it, and
+    the next run six hours on hits the same cold cache. Poll until it settles
+    rather than reading the placeholder as a verdict.
+    """
+    number = pr['number']
+    for _ in range(MERGE_STATE_ATTEMPTS):
+        if (pr.get('mergeStateStatus') or '').upper() != 'UNKNOWN':
+            return pr
+        time.sleep(MERGE_STATE_DELAY_SECONDS)
+        try:
+            fresh = gh_json(['pr', 'view', str(number), '--json', 'mergeStateStatus,mergeable'])
+        except RuntimeError as exc:
+            print(f"PR #{number}: could not refresh merge state: {exc}", file=sys.stderr)
+            return pr
+        pr = dict(pr, **fresh)
+    print(f"PR #{number}: mergeStateStatus still UNKNOWN after "
+          f"{MERGE_STATE_ATTEMPTS} attempts", file=sys.stderr)
+    return pr
+
+
 def sync_label(pr_number, target_label, dry_run):
     if not target_label:
         return
@@ -363,6 +393,7 @@ def main():
                 audit_verdict = fetch_audit_verdict(run_id, package)
                 inspect_verdict = fetch_inspect_verdict(run_id, package)
 
+        pr = refresh_merge_state(pr)
         decision = evaluate(pr, changed, submodule_names, now, merge_delay_days, audit_verdict, inspect_verdict)
         sync_label(number, decision.target_label, args.dry_run)
 
