@@ -203,13 +203,13 @@
       "aur_comaintainers": [],
       "aur_maintainer": "Martchus",
       "aur_pkgbase": "qtutilities-qt6",
-      "aur_popularity": 1.21419,
+      "aur_popularity": 0.912944,
       "aur_votes": 22,
       "has_install_script": false,
       "install_sha256": null,
       "last_accepted_author_email": "martchus@gmx.net",
-      "last_accepted_commit": "abde86c83808c1ea6fafe999239d79f44092f776",
-      "last_accepted_pkgver": "6.22.0-1",
+      "last_accepted_commit": "bfdaf60fccca7eaf913ee84f40629265aae45ed3",
+      "last_accepted_pkgver": "6.22.1-1",
       "network_in_build": false,
       "source_hosts": [
         "github.com"
