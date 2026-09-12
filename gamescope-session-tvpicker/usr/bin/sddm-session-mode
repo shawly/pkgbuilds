@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# Read or set the session the machine logs into.
+#   sddm-session-mode                    show current mode and decision
+#   sddm-session-mode auto|desktop|gamescope [--now]
+# --now regenerates the SDDM config and restarts SDDM, ending the current session.
+set -uo pipefail
+
+MODE_FILE=/etc/sddm-session-mode
+PICKER=/usr/bin/sddm-session-picker
+
+case ${1:-status} in
+    status|"")
+        printf 'mode: %s\n' "$(tr -d '[:space:]' < "$MODE_FILE" 2>/dev/null || echo auto)"
+        "$PICKER" --dry-run
+        exit 0
+        ;;
+    auto|desktop|gamescope)
+        want=$1
+        ;;
+    *)
+        echo "usage: ${0##*/} [auto|desktop|gamescope] [--now]" >&2
+        exit 2
+        ;;
+esac
+
+if (( EUID != 0 )); then
+    echo "${0##*/}: must run as root to change the mode" >&2
+    exit 1
+fi
+
+printf '%s\n' "$want" > "$MODE_FILE"
+chmod 0644 "$MODE_FILE"
+echo "mode set to $want"
+
+if [[ ${2:-} == --now ]]; then
+    "$PICKER"
+    systemctl restart sddm
+fi

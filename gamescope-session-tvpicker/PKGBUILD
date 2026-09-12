@@ -1,0 +1,41 @@
+# Contributor: shawly
+pkgname=gamescope-session-tvpicker
+pkgver=1.0.0
+pkgrel=1
+pkgdesc="Picks the SDDM auto-login session from which display is attached"
+arch=('any')
+url="https://github.com/shawly/pkgbuilds"
+license=('ISC')
+depends=('sddm' 'kdialog')
+optdepends=('gamescope-session-cachyos: CachyOS Steam session')
+install="${pkgname}.install"
+backup=("etc/${pkgname}.conf"
+        'etc/sddm-session-mode'
+        "etc/sudoers.d/${pkgname}")
+
+# No source=(): the payload is the etc/ and usr/ trees next to this PKGBUILD,
+# laid out exactly as they are installed. makepkg only ever looks for a local
+# source entry by its basename in the package directory, so a path with a
+# directory component in source=() cannot work.
+
+package() {
+  local f
+
+  # package() runs from $srcdir, so globs have to be anchored at $startdir.
+  for f in "${startdir}"/usr/bin/*; do
+    install -Dm755 "${f}" "${pkgdir}/usr/bin/${f##*/}"
+  done
+
+  for f in "etc/${pkgname}.conf" \
+           'etc/sddm-session-mode' \
+           'usr/lib/systemd/system/sddm.service.d/50-tvpicker.conf' \
+           "usr/share/applications/${pkgname}.desktop"; do
+    install -Dm644 "${startdir}/${f}" "${pkgdir}/${f}"
+  done
+
+  install -Dm440 "${startdir}/etc/sudoers.d/${pkgname}" \
+                 "${pkgdir}/etc/sudoers.d/${pkgname}"
+
+  install -Dm644 "${startdir}/README.md" \
+                 "${pkgdir}/usr/share/doc/${pkgname}/README.md"
+}

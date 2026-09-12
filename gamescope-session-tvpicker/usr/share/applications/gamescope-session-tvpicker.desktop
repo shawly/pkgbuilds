@@ -1,0 +1,28 @@
+[Desktop Entry]
+Type=Application
+Name=Session Switcher
+GenericName=Login Session
+Comment=Choose whether this machine logs into Plasma or Steam Big Picture
+Exec=session-switch menu
+Icon=steam
+Terminal=false
+Categories=Settings;HardwareSettings;
+Keywords=steam;gamescope;bigpicture;session;sddm;login;tv;
+Actions=GamescopeNow;BootGamescope;BootDesktop;BootAuto;
+
+[Desktop Action GamescopeNow]
+Name=Switch to Steam Big Picture now
+Icon=steam
+Exec=session-switch gamescope-now
+
+[Desktop Action BootGamescope]
+Name=Boot into Steam Big Picture
+Exec=session-switch gamescope
+
+[Desktop Action BootDesktop]
+Name=Boot into the Plasma desktop
+Exec=session-switch desktop
+
+[Desktop Action BootAuto]
+Name=Boot by connected display
+Exec=session-switch auto

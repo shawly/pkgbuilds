@@ -223,7 +223,7 @@ def check_install_script(old_dir, new_dir):
     return findings
 
 
-def check_new_paths(added_paths):
+def check_new_paths(added_paths, first_build=False):
     findings = []
     systemd_hits = sorted(p for p in added_paths if p.startswith(_SYSTEMD_DIRS))
     if systemd_hits:
@@ -231,10 +231,18 @@ def check_new_paths(added_paths):
             "artifact.new_systemd_unit", REVIEW,
             f"New file(s) under a systemd unit directory: {', '.join(systemd_hits)}",
         ))
+    # On a first build every path is "new", so this rule sees the whole tree
+    # instead of a delta. A package that legitimately ships a sudoers drop-in
+    # would be unpublishable forever: blocking is what stops it becoming the
+    # baseline it would later be compared against. Score it `review` there, the
+    # way check_setuid already does, so it still gets read once by hand. From
+    # the second build on this is a real delta, a privileged path appearing in
+    # an update to an already-published package, and stays a hard block.
+    severity = REVIEW if first_build else BLOCK
     hard_hits = sorted(p for p in added_paths if p.startswith(_HARD_BLOCK_DIRS) or p == 'etc/crontab')
     if hard_hits:
         findings.append(Finding(
-            "artifact.new_privileged_path", BLOCK,
+            "artifact.new_privileged_path", severity,
             f"New file(s) in a privileged auto-run location: {', '.join(hard_hits)}",
         ))
     return findings
@@ -417,7 +425,7 @@ def inspect_package(package, new_pkg_path, old_pkg_path, pkgbuild_text, yara_rul
         # Hard-block dirs and setuid apply to the whole tree, not just what's
         # new, on a first build too -- added_paths == new_paths there anyway.
         if first_build:
-            findings.extend(check_new_paths(new_paths))
+            findings.extend(check_new_paths(new_paths, first_build=True))
 
         if not skip_clamav:
             findings.extend(run_clamav(new_dir))

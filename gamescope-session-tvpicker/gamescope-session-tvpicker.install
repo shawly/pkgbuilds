@@ -1,0 +1,19 @@
+post_install() {
+    /usr/bin/sddm-session-picker || true
+    cat <<'EOF'
+==> gamescope-session-tvpicker
+    Set TV_MATCH in /etc/gamescope-session-tvpicker.conf to a substring of your
+    TV's EDID, otherwise detection stays off and only the manual modes work:
+        cat /sys/class/drm/card1-HDMI-A-1/edid | strings -n 4
+    Check the decision with `sddm-session-mode`, change it from the start menu
+    entry "Session Switcher", and read /usr/share/doc for the rest.
+EOF
+}
+
+post_upgrade() {
+    /usr/bin/sddm-session-picker || true
+}
+
+post_remove() {
+    rm -f /etc/sddm.conf.d/zzz-session-picker.conf
+}

@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# Front end for sddm-session-mode. Chooses which session SDDM logs into.
+set -uo pipefail
+
+MODE_BIN=/usr/bin/sddm-session-mode
+MODE_FILE=/etc/sddm-session-mode
+TITLE="Session Switcher"
+
+err() { kdialog --title "$TITLE" --error "$1"; exit 1; }
+
+current() { tr -d '[:space:]' < "$MODE_FILE" 2>/dev/null || echo auto; }
+
+apply() {
+    local mode=$1 now=${2:-} out
+    if [[ $now == --now ]]; then
+        kdialog --title "$TITLE" --warningcontinuecancel \
+            "Switch to Steam Big Picture now?
+
+This restarts the login manager and ends your desktop session immediately. Save your work first." || return 0
+    fi
+    if ! out=$(sudo -n "$MODE_BIN" "$mode" $now 2>&1); then
+        err "Could not change the session mode:
+
+$out"
+    fi
+    [[ $now == --now ]] || kdialog --title "$TITLE" --passivepopup "Next login: $mode" 5
+}
+
+case "${1:-menu}" in
+    gamescope-now) apply gamescope --now ;;
+    gamescope|desktop|auto) apply "$1" ;;
+    menu)
+        cur=$(current)
+        on() { [[ $cur == "$1" ]] && echo on || echo off; }
+        choice=$(kdialog --title "$TITLE" --radiolist "Which session should this machine log into?" \
+            auto      "Decide from the connected display" "$(on auto)" \
+            desktop   "Always the Plasma desktop"         "$(on desktop)" \
+            gamescope "Always Steam Big Picture"          "$(on gamescope)") || exit 0
+        apply "$choice"
+        if [[ $choice == gamescope ]]; then
+            kdialog --title "$TITLE" --yesno "Switch over now instead of at the next boot?" \
+                && apply gamescope --now
+        fi
+        ;;
+    *)
+        echo "usage: ${0##*/} [menu|auto|desktop|gamescope|gamescope-now]" >&2
+        exit 2
+        ;;
+esac

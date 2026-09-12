@@ -6,3 +6,13 @@ current_repo.db.tar.gz
 # only trust.json (the accepted baseline) is committed.
 .github/security/verdicts/
 .github/security/audit-summary.md
+
+# makepkg build output. Building a package in place drops these next to the
+# PKGBUILD; a committed *.pkg.tar.zst makes CI fail with "A package has
+# already been built."
+*.pkg.tar.zst
+*.pkg.tar.zst.sig
+*.pkg.tar.xz
+*.src.tar.gz
+*/pkg/
+*/src/
