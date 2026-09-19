@@ -42,11 +42,16 @@ On merge: approve (best-effort -- a repo that doesn't require review approval
 will just no-op here) then squash-merge with branch deletion. After every PR
 in a run has been handled, if anything merged, pull master, update the
 submodule(s) that changed, and run audit_submodule.py --advance-trust once,
-pushing the result as a follow-up commit. That follow-up push is a second
-push to master (the merge itself was the first) and will cancel-and-restart
-the build that the merge triggered, by build-level.yml's own concurrency
-group -- harmless (trust.json carries no build input), just a documented
-inefficiency, not a correctness bug.
+pushing the result as a follow-up commit.
+
+Neither the merge nor that follow-up push builds anything on its own.
+GitHub does not start a workflow run for a `push` whose actor is
+GITHUB_TOKEN, and this job has no other credential, so a merged submodule
+bump would sit on master unbuilt until the next unrelated human push. The
+last step of a run that merged anything is therefore an explicit
+`gh workflow run main.yml`: `workflow_dispatch` is one of the two events
+exempt from that rule. keyupdate.yml dispatches the same way for the same
+reason.
 """
 
 import argparse
@@ -369,6 +374,33 @@ def advance_trust_after_merge(packages, dry_run):
     run(['git', 'push', 'origin', 'HEAD:master'], capture_output=False)
 
 
+def trigger_build(dry_run):
+    """Dispatch main.yml, because the merge commit will never trigger it.
+
+    Events whose actor is GITHUB_TOKEN do not create workflow runs, which
+    silently applies to the squash-merge above and to the trust.json push.
+    workflow_dispatch is exempt, so ask for the build explicitly. No
+    force_rebuild: analyze compares every PKGBUILD against the published
+    database and will find exactly the packages this run merged.
+    """
+    if dry_run:
+        print("[dry-run] would dispatch main.yml on master")
+        return
+    repo = os.environ.get('GITHUB_REPOSITORY')
+    cmd = ['gh', 'workflow', 'run', 'main.yml', '--ref', 'master']
+    if repo:
+        cmd += ['--repo', repo]
+    result = run(cmd)
+    if result.returncode != 0:
+        # Loud: without this dispatch the merged bumps are never built, which
+        # is indistinguishable from the pipeline working until someone
+        # notices the release is stale.
+        print(f"::error::merged PRs but could not dispatch main.yml: "
+              f"{result.stderr.strip()}", file=sys.stderr)
+        return
+    print("Dispatched main.yml on master to build the merged bump(s).")
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--dry-run', action='store_true',
@@ -416,6 +448,9 @@ def main():
 
     if merged:
         advance_trust_after_merge(merged, args.dry_run)
+        # Last, so the dispatched run checks out a master that already
+        # carries the advanced trust baseline.
+        trigger_build(args.dry_run)
     else:
         print("Nothing merged this run.")
     return 0
