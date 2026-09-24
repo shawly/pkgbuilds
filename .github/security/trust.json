@@ -53,13 +53,13 @@
       "aur_comaintainers": [],
       "aur_maintainer": "Martchus",
       "aur_pkgbase": "c++utilities",
-      "aur_popularity": 1.422764,
-      "aur_votes": 72,
+      "aur_popularity": 1.681278,
+      "aur_votes": 73,
       "has_install_script": false,
       "install_sha256": null,
       "last_accepted_author_email": "martchus@gmx.net",
-      "last_accepted_commit": "ee173f7a4e17e0a35a5d64e6668a5edb41e3bf84",
-      "last_accepted_pkgver": "5.35.0-1",
+      "last_accepted_commit": "6f5586043fe24ae51caaad5846423ddfe63a656c",
+      "last_accepted_pkgver": "5.36.0-1",
       "network_in_build": false,
       "source_hosts": [
         "github.com"
