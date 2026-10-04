@@ -1,15 +1,3 @@
-[submodule "syncthingtray-qt6"]
-	path = syncthingtray-qt6
-	url = https://aur.archlinux.org/syncthingtray-qt6.git
-[submodule "c++utilities"]
-	path = c++utilities
-	url = https://aur.archlinux.org/c++utilities.git
-[submodule "qtforkawesome-qt6"]
-	path = qtforkawesome-qt6
-	url = https://aur.archlinux.org/qtforkawesome-qt6.git
-[submodule "qtutilities-qt6"]
-	path = qtutilities-qt6
-	url = https://aur.archlinux.org/qtutilities-qt6.git
 [submodule "steamtinkerlaunch"]
 	path = steamtinkerlaunch
 	url = https://aur.archlinux.org/steamtinkerlaunch-git.git
