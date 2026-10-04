@@ -1,0 +1,16 @@
+# Game install directory the mod layers are stacked onto. A relative path
+# resolves against the prefix, so this stays valid if the prefix moves, which
+# is what you want for a Heroic prefix that holds the game under drive_c.
+TARGET="drive_c/Games/Clair Obscur Expedition 33"
+
+# A Steam game lives outside its compatdata prefix, so it needs an absolute
+# path instead:
+#TARGET="/home/user/.steam/steam/steamapps/common/Some Game"
+
+# Optional: writable layer and overlayfs work directory. Set both or neither.
+# They default to .upper and .work next to this file, unless this directory is
+# on a filesystem that cannot hold an overlayfs upper layer (fuse, ntfs,
+# exfat), in which case they move under XDG_DATA_HOME and the wrapper says so
+# at launch.
+#UPPER=
+#WORK=

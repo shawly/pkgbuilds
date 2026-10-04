@@ -1,0 +1,24 @@
+# Contributor: shawly
+pkgname=winemodoverlayer
+pkgver=1.0.0
+pkgrel=1
+pkgdesc="Overlays mods onto a Wine or Proton game without touching the install"
+arch=('any')
+url="https://github.com/shawly/pkgbuilds"
+license=('ISC')
+depends=('bash' 'bubblewrap')
+optdepends=('heroic-games-launcher: add it to a wrapper list, no arguments needed'
+            'steam: put it in front of %command% in the launch options')
+
+# No source=(): the payload is the usr/ tree next to this PKGBUILD, laid out
+# exactly as it is installed. makepkg only ever looks for a local source entry
+# by its basename in the package directory, so a path with a directory
+# component in source=() cannot work.
+
+package() {
+  install -Dm755 "${startdir}/usr/bin/${pkgname}" "${pkgdir}/usr/bin/${pkgname}"
+
+  install -Dm644 "${startdir}/README.md" "${pkgdir}/usr/share/doc/${pkgname}/README.md"
+  install -Dm644 "${startdir}/overlay.conf.example" \
+                 "${pkgdir}/usr/share/doc/${pkgname}/overlay.conf.example"
+}

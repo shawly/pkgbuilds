@@ -1,0 +1,136 @@
+#!/usr/bin/env bash
+# winemodoverlayer - run a game with mods overlaid on its install directory.
+# Mods are stacked onto the install directory with overlayfs inside a private
+# mount namespace, so paths stay valid and the install is never written to.
+
+set -euo pipefail
+
+name=${0##*/}
+die() { printf '%s: %s\n' "$name" "$*" >&2; exit 1; }
+note() { printf '%s: %s\n' "$name" "$*" >&2; }
+
+usage() {
+	cat <<EOF
+Usage: $name [-m <mods-dir>] [--] <command>...
+
+Runs <command> with the mod layers in <mods-dir> overlaid on the game's
+install directory. The install directory is never written to; everything the
+game writes lands in the upper layer instead, which is <mods-dir>/.upper when
+that filesystem can hold one and a directory under XDG_DATA_HOME when it
+cannot.
+
+Options:
+  -m, --mods <dir>  Mods directory. Defaults to \$STEAM_COMPAT_DATA_PATH/mods
+                    for Proton and \$WINEPREFIX/mods for Wine, which is the
+                    same path either way. Heroic and Steam both set one, so
+                    the default is usually right.
+  -h, --help        This text.
+
+The mods directory holds one subdirectory per mod, each mirroring the game's
+layout from the install root, plus an overlay.conf setting TARGET to the
+install directory. A relative TARGET resolves against the prefix. Layers apply
+in C sort order and later names win on conflicts; subdirectories whose name
+starts with "." or "_" are not layers.
+
+With no mods directory, no layers in it, and no prefix in the environment, the
+command runs unchanged. That makes the wrapper safe to enable for every game.
+
+See /usr/share/doc/$name/README.md.
+EOF
+}
+
+mods=
+while [ $# -gt 0 ]; do
+	case $1 in
+	-m | --mods)
+		[ $# -ge 2 ] || die "$1 needs a directory"
+		mods=$2
+		shift 2
+		;;
+	-h | --help)
+		usage
+		exit 0
+		;;
+	--)
+		shift
+		break
+		;;
+	*) break ;;
+	esac
+done
+[ $# -ge 1 ] || { usage >&2; exit 2; }
+
+prefix=${STEAM_COMPAT_DATA_PATH:-${WINEPREFIX:-}}
+if [ -z "$mods" ]; then
+	if [ -z "$prefix" ]; then
+		note 'no prefix in the environment and no -m given, running unmodded'
+		exec "$@"
+	fi
+	mods=$prefix/mods
+fi
+
+if [ ! -d "$mods" ]; then
+	note "no mods directory at $mods, running unmodded"
+	exec "$@"
+fi
+[ -f "$mods/overlay.conf" ] || die "missing $mods/overlay.conf"
+
+TARGET=
+UPPER=
+WORK=
+# shellcheck source=/dev/null
+. "$mods/overlay.conf"
+[ -n "$TARGET" ] || die "TARGET not set in $mods/overlay.conf"
+# A relative TARGET resolves against the prefix, which keeps a mods directory
+# portable when the prefix moves.
+case $TARGET in
+/*) target=$TARGET ;;
+*) target=${prefix:-$(dirname -- "$mods")}/$TARGET ;;
+esac
+[ -d "$target" ] || die "TARGET does not exist: $target"
+
+if { [ -n "$UPPER" ] && [ -z "$WORK" ]; } || { [ -z "$UPPER" ] && [ -n "$WORK" ]; }; then
+	die 'set both UPPER and WORK in overlay.conf, or neither'
+fi
+if [ -n "$UPPER" ]; then
+	upper=$UPPER
+	work=$WORK
+else
+	# An overlayfs upper layer needs user xattrs, which rules out fuse
+	# (mergerfs, ntfs-3g, rclone), ntfs and exfat. The mount fails with a
+	# bare EINVAL there, so check first and fall back to XDG_DATA_HOME.
+	fstype=$(stat -f -c %T "$mods" 2>/dev/null) || fstype=unknown
+	case $fstype in
+	ext2/ext3 | btrfs | xfs | f2fs | bcachefs | zfs | tmpfs)
+		upper=$mods/.upper
+		work=$mods/.work
+		;;
+	*)
+		state=${XDG_DATA_HOME:-$HOME/.local/share}/$name/$(basename -- "${prefix:-$mods}")
+		note "$mods is on $fstype and cannot hold the upper layer, using $state"
+		upper=$state/upper
+		work=$state/work
+		;;
+	esac
+fi
+mkdir -p "$upper" "$work"
+
+layers=()
+while IFS= read -r -d '' dir; do
+	layers+=("$dir")
+done < <(find "$mods" -mindepth 1 -maxdepth 1 -type d \
+	! -name '.*' ! -name '_*' -print0 | LC_ALL=C sort -z)
+if [ ${#layers[@]} -eq 0 ]; then
+	note "no layers in $mods, running unmodded"
+	exec "$@"
+fi
+
+args=(--dev-bind / / --die-with-parent --overlay-src "$target")
+for dir in "${layers[@]}"; do
+	args+=(--overlay-src "$dir")
+	note "layer ${dir##*/}"
+done
+args+=(--overlay "$upper" "$work" "$target")
+note "overlaying $target"
+
+exec bwrap "${args[@]}" -- "$@"
