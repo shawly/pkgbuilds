@@ -155,6 +155,12 @@ jobs:
           dir: ${{ matrix.package }}
           run: makepkg -sr -C -c --noconfirm --noprogressbar
 
+      # entrypoint.sh exits under set -e on a makepkg failure before handing
+      # the workspace back from the container's build user.
+      - name: Restore workspace ownership
+        if: always() && steps.skip_check.outputs.skip != 'true'
+        run: sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE"
+
       - name: Remove debug packages
         if: steps.skip_check.outputs.skip != 'true' && steps.build.outcome == 'success'
         run: rm -f ${{ matrix.package }}/${{ matrix.package }}-debug-*.pkg.tar.zst*

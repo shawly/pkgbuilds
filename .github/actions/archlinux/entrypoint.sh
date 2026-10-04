@@ -5,6 +5,8 @@ pacman -Syuq --noconfirm --noprogressbar --ignore linux --ignore linux-firmware 
 
 og=$(stat -c '%u:%g' .)
 od=$(pwd)
+# hand the workspace back even when set -e aborts the build
+trap 'cd "$od" && chown -R "$og" .' EXIT
 chown -R build: .
 
 if [ -n "${GPG_FILE_PASSWORD}" ]; then
@@ -50,5 +52,3 @@ fi
 
 sudo -u build --preserve-env=PACKAGER bash -c "$*"
 
-cd "$od"
-chown -R "$og" .
