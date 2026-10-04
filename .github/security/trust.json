@@ -49,24 +49,6 @@
       ],
       "vcs_package": false
     },
-    "c++utilities": {
-      "aur_comaintainers": [],
-      "aur_maintainer": "Martchus",
-      "aur_pkgbase": "c++utilities",
-      "aur_popularity": 1.681278,
-      "aur_votes": 73,
-      "has_install_script": false,
-      "install_sha256": null,
-      "last_accepted_author_email": "martchus@gmx.net",
-      "last_accepted_commit": "6f5586043fe24ae51caaad5846423ddfe63a656c",
-      "last_accepted_pkgver": "5.36.0-1",
-      "network_in_build": false,
-      "source_hosts": [
-        "github.com"
-      ],
-      "validpgpkeys": [],
-      "vcs_package": false
-    },
     "eontimer-bin": {
       "aur_comaintainers": [],
       "aur_maintainer": "INeedTogepi",
@@ -181,42 +163,6 @@
       "validpgpkeys": [],
       "vcs_package": false
     },
-    "qtforkawesome-qt6": {
-      "aur_comaintainers": [],
-      "aur_maintainer": "Martchus",
-      "aur_pkgbase": "qtforkawesome-qt6",
-      "aur_popularity": 0.278568,
-      "aur_votes": 20,
-      "has_install_script": false,
-      "install_sha256": null,
-      "last_accepted_author_email": "martchus@gmx.net",
-      "last_accepted_commit": "845544e2026236706af383d321821ee37f4d9412",
-      "last_accepted_pkgver": "0.3.4-1",
-      "network_in_build": false,
-      "source_hosts": [
-        "github.com"
-      ],
-      "validpgpkeys": [],
-      "vcs_package": false
-    },
-    "qtutilities-qt6": {
-      "aur_comaintainers": [],
-      "aur_maintainer": "Martchus",
-      "aur_pkgbase": "qtutilities-qt6",
-      "aur_popularity": 0.791744,
-      "aur_votes": 22,
-      "has_install_script": false,
-      "install_sha256": null,
-      "last_accepted_author_email": "martchus@gmx.net",
-      "last_accepted_commit": "808d326a3271a504a474570a9ca59074b2438db3",
-      "last_accepted_pkgver": "6.22.2-1",
-      "network_in_build": false,
-      "source_hosts": [
-        "github.com"
-      ],
-      "validpgpkeys": [],
-      "vcs_package": false
-    },
     "steamtinkerlaunch": {
       "aur_comaintainers": [],
       "aur_maintainer": "npil",
@@ -228,24 +174,6 @@
       "last_accepted_author_email": "n.pliky@gmail.com",
       "last_accepted_commit": "9fac6b54b02eac37444f75cb6876bc9830979b5c",
       "last_accepted_pkgver": "12.12.r278.g8550ab2-1",
-      "network_in_build": false,
-      "source_hosts": [
-        "github.com"
-      ],
-      "validpgpkeys": [],
-      "vcs_package": false
-    },
-    "syncthingtray-qt6": {
-      "aur_comaintainers": [],
-      "aur_maintainer": "Martchus",
-      "aur_pkgbase": "syncthingtray-qt6",
-      "aur_popularity": 4.075712,
-      "aur_votes": 56,
-      "has_install_script": false,
-      "install_sha256": null,
-      "last_accepted_author_email": "martchus@gmx.net",
-      "last_accepted_commit": "f3cf79ff768ee5e015d4649273180fcb48e42666",
-      "last_accepted_pkgver": "2.1.5-1",
       "network_in_build": false,
       "source_hosts": [
         "github.com"
