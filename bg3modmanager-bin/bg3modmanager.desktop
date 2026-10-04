@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=BG3 Mod Manager
+GenericName=Mod Manager
+Comment=Mod manager for Baldur's Gate 3
+Categories=Game;
+Keywords=bg3;baldur's gate 3;mod manager;bg3mm;
+Icon=bg3modmanager
+Exec=bg3modmanager
+StartupNotify=true
+Terminal=false

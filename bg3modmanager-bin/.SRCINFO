@@ -1,0 +1,23 @@
+pkgbase = bg3modmanager-bin
+	pkgdesc = Mod manager for Baldur's Gate 3, run inside the game's Steam Proton prefix
+	pkgver = 1.0.12.9
+	pkgrel = 2
+	url = https://github.com/LaughingLeader/BG3ModManager
+	arch = x86_64
+	license = MIT
+	depends = protontricks
+	optdepends = libnotify: desktop notifications during first-run prefix setup
+	noextract = bg3modmanager-1.0.12.9.zip
+	options = !strip
+	source = bg3modmanager-1.0.12.9.zip::https://github.com/LaughingLeader/BG3ModManager/releases/download/1.0.12.9/BG3ModManager_Latest.zip
+	source = bg3modmanager-1.0.12.9.png::https://raw.githubusercontent.com/LaughingLeader/BG3ModManager/1.0.12.9/src/GUI/BG3ModManager.ico
+	source = LICENSE-1.0.12.9::https://raw.githubusercontent.com/LaughingLeader/BG3ModManager/1.0.12.9/LICENSE
+	source = bg3modmanager.sh
+	source = bg3modmanager.desktop
+	sha256sums = d28670a6b4abee65c0818c67a90540df141971193eaff53d47a8af2743dd22d3
+	sha256sums = cd1017b23c98225c1144d142dba25ea76ad7c6f5ec04ea5416a88a1be53d8047
+	sha256sums = b47f17cd17ddc11ce6504a3f1eab10c9f32721812e6f4bb3cb98b0ec0eafbdaa
+	sha256sums = 6dbb1c5a8a571ae2022e7afb1bee6efbac7fdcaa2b02495d85b2c8ea21511258
+	sha256sums = 892a84521ffc3525da07c5906f55d16a799e2029013c9f590835778b4c9cc836
+
+pkgname = bg3modmanager-bin

@@ -1,0 +1,36 @@
+# Maintainer: shawly <shawlyde@gmail.com>
+
+pkgname=bg3modmanager-bin
+_pkgname=bg3modmanager
+pkgver=1.0.12.9
+pkgrel=2
+pkgdesc="Mod manager for Baldur's Gate 3, run inside the game's Steam Proton prefix"
+arch=('x86_64')
+url="https://github.com/LaughingLeader/BG3ModManager"
+license=('MIT')
+depends=('protontricks')
+optdepends=('libnotify: desktop notifications during first-run prefix setup')
+options=('!strip')
+noextract=("$_pkgname-$pkgver.zip")
+source=("$_pkgname-$pkgver.zip::$url/releases/download/$pkgver/BG3ModManager_Latest.zip"
+        "$_pkgname-$pkgver.png::https://raw.githubusercontent.com/LaughingLeader/BG3ModManager/$pkgver/src/GUI/BG3ModManager.ico"
+        "LICENSE-$pkgver::https://raw.githubusercontent.com/LaughingLeader/BG3ModManager/$pkgver/LICENSE"
+        "$_pkgname.sh"
+        "$_pkgname.desktop")
+sha256sums=('d28670a6b4abee65c0818c67a90540df141971193eaff53d47a8af2743dd22d3'
+            'cd1017b23c98225c1144d142dba25ea76ad7c6f5ec04ea5416a88a1be53d8047'
+            'b47f17cd17ddc11ce6504a3f1eab10c9f32721812e6f4bb3cb98b0ec0eafbdaa'
+            '6dbb1c5a8a571ae2022e7afb1bee6efbac7fdcaa2b02495d85b2c8ea21511258'
+            '892a84521ffc3525da07c5906f55d16a799e2029013c9f590835778b4c9cc836')
+
+package() {
+    install -d "$pkgdir/opt/$_pkgname"
+    bsdtar -xf "$_pkgname-$pkgver.zip" -C "$pkgdir/opt/$_pkgname" --no-same-owner
+    chmod -R u=rwX,go=rX "$pkgdir/opt/$_pkgname"
+
+    install -Dm755 "$_pkgname.sh" "$pkgdir/usr/bin/$_pkgname"
+    install -Dm644 "$_pkgname.desktop" "$pkgdir/usr/share/applications/$_pkgname.desktop"
+    # Upstream .ico is a 128x128 PNG
+    install -Dm644 "$_pkgname-$pkgver.png" "$pkgdir/usr/share/icons/hicolor/128x128/apps/$_pkgname.png"
+    install -Dm644 "LICENSE-$pkgver" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

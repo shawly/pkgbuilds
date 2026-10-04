@@ -1,0 +1,23 @@
+pkgbase = witcher3modmanager-bin
+	pkgdesc = Mod manager for The Witcher 3, run inside the game's Steam Proton prefix
+	pkgver = 0.10.5
+	pkgrel = 2
+	url = https://github.com/Systemcluster/The-Witcher-3-Mod-manager
+	arch = x86_64
+	license = BSD-2-Clause
+	makedepends = clang
+	makedepends = imagemagick
+	makedepends = lld
+	depends = protontricks
+	noextract = witcher3modmanager-0.10.5.zip
+	options = !strip
+	source = witcher3modmanager-0.10.5.zip::https://github.com/Systemcluster/The-Witcher-3-Mod-manager/releases/download/release-0.10.5/TW3MM.zip
+	source = witcher3modmanager.sh
+	source = witcher3modmanager.desktop
+	source = icuuc.def
+	sha256sums = 3bc835585eb394a9f5b3c4f18c55416ace2b92076fe22e50dd09de5f6d0c25c6
+	sha256sums = 9dff3c1c0427efe5ce8cc397e2fe3de44198bf136e31f5fd9bcdb6738053b925
+	sha256sums = dc5a69539dedb4af363c4161168ac894437ca9468b4a85891e089ea7f1b98c32
+	sha256sums = d0fbc7279d16c5584dfa5c2d478385557ffc40b826260007c24bc8082bc6d3ed
+
+pkgname = witcher3modmanager-bin

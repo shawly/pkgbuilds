@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=The Witcher 3 Mod Manager
+GenericName=Mod Manager
+Comment=Mod manager for The Witcher 3: Wild Hunt
+Categories=Game;
+Keywords=witcher;witcher 3;tw3mm;mod manager;
+Icon=witcher3modmanager
+Exec=witcher3modmanager
+StartupNotify=true
+Terminal=false

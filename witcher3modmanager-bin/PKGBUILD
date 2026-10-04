@@ -1,0 +1,50 @@
+# Maintainer: shawly <shawlyde@gmail.com>
+
+pkgname=witcher3modmanager-bin
+_pkgname=witcher3modmanager
+pkgver=0.10.5
+pkgrel=2
+pkgdesc="Mod manager for The Witcher 3, run inside the game's Steam Proton prefix"
+arch=('x86_64')
+url="https://github.com/Systemcluster/The-Witcher-3-Mod-manager"
+license=('BSD-2-Clause')
+depends=('protontricks')
+makedepends=('clang' 'imagemagick' 'lld')
+options=('!strip')
+noextract=("$_pkgname-$pkgver.zip")
+source=("$_pkgname-$pkgver.zip::$url/releases/download/release-$pkgver/TW3MM.zip"
+        "$_pkgname.sh"
+        "$_pkgname.desktop"
+        "icuuc.def")
+sha256sums=('3bc835585eb394a9f5b3c4f18c55416ace2b92076fe22e50dd09de5f6d0c25c6'
+            '9dff3c1c0427efe5ce8cc397e2fe3de44198bf136e31f5fd9bcdb6738053b925'
+            'dc5a69539dedb4af363c4161168ac894437ca9468b4a85891e089ea7f1b98c32'
+            'd0fbc7279d16c5584dfa5c2d478385557ffc40b826260007c24bc8082bc6d3ed')
+
+prepare() {
+    rm -rf app
+    mkdir app
+    bsdtar -xf "$_pkgname-$pkgver.zip" -C app --no-same-owner
+}
+
+build() {
+    # w3a.ico is the icon upstream embeds in TheWitcher3ModManager.exe
+    magick 'app/res/w3a.ico[0]' "$_pkgname.png"
+
+    # Forwarder from icuuc.dll to Wine's icu.dll; lld-link needs one object to link
+    echo 'int _stub;' > stub.c
+    clang --target=x86_64-pc-windows-msvc -c stub.c -o stub.obj
+    lld-link /dll /noentry /nodefaultlib /machine:x64 /def:icuuc.def /out:icuuc.dll stub.obj
+}
+
+package() {
+    install -d "$pkgdir/opt/$_pkgname"
+    cp -r app/. "$pkgdir/opt/$_pkgname/"
+    install -m644 icuuc.dll "$pkgdir/opt/$_pkgname/icuuc.dll"
+    chmod -R u=rwX,go=rX "$pkgdir/opt/$_pkgname"
+
+    install -Dm755 "$_pkgname.sh" "$pkgdir/usr/bin/$_pkgname"
+    install -Dm644 "$_pkgname.desktop" "$pkgdir/usr/share/applications/$_pkgname.desktop"
+    install -Dm644 "$_pkgname.png" "$pkgdir/usr/share/icons/hicolor/64x64/apps/$_pkgname.png"
+    install -Dm644 app/LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
