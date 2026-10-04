@@ -1,0 +1,20 @@
+post_install() {
+    /usr/bin/gamescope-tvsession apply || true
+    cat <<'EOF'
+==> gamescope-tvsession
+    Set TV_MATCH in /etc/gamescope-tvsession.conf to a substring of your TV's
+    EDID, otherwise detection stays off and only the manual modes work:
+        cat /sys/class/drm/card1-HDMI-A-1/edid | strings -n 4
+    Then run `gamescope-tvsession` to see what it would do, or use the "Game
+    Mode" entry in the start menu. Details in /usr/share/doc.
+EOF
+}
+
+post_upgrade() {
+    /usr/bin/gamescope-tvsession apply || true
+}
+
+post_remove() {
+    rm -f /etc/plasmalogin.conf.d/zzz-gamescope-tvsession.conf
+    rm -rf /var/lib/gamescope-tvsession
+}

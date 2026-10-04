@@ -1,0 +1,16 @@
+[Desktop Entry]
+Type=Application
+Name=Game Mode
+GenericName=Login Session
+Comment=Choose whether this machine logs into Plasma or Steam Big Picture
+Exec=gamescope-tvsession menu
+Icon=steam
+Terminal=false
+Categories=Settings;HardwareSettings;
+Keywords=steam;gamescope;bigpicture;session;login;tv;gamemode;
+Actions=SwitchNow;
+
+[Desktop Action SwitchNow]
+Name=Switch to Steam Big Picture now
+Icon=steam
+Exec=gamescope-tvsession switch

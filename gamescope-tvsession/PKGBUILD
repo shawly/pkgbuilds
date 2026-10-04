@@ -1,0 +1,37 @@
+# Contributor: shawly
+pkgname=gamescope-tvsession
+pkgver=1.0.0
+pkgrel=1
+pkgdesc="Logs into Steam Big Picture when the TV is attached, the Plasma desktop otherwise"
+arch=('any')
+url="https://github.com/shawly/pkgbuilds"
+license=('ISC')
+depends=('plasma-login-manager' 'kdialog')
+optdepends=('gamescope-session-cachyos: the Steam Big Picture session itself')
+install="${pkgname}.install"
+backup=("etc/${pkgname}.conf"
+        "etc/sudoers.d/${pkgname}")
+
+# No source=(): the payload is the etc/ and usr/ trees next to this PKGBUILD,
+# laid out exactly as they are installed. makepkg only ever looks for a local
+# source entry by its basename in the package directory, so a path with a
+# directory component in source=() cannot work.
+
+package() {
+  install -Dm755 "${startdir}/usr/bin/${pkgname}" "${pkgdir}/usr/bin/${pkgname}"
+
+  install -Dm644 "${startdir}/etc/${pkgname}.conf" "${pkgdir}/etc/${pkgname}.conf"
+
+  install -Dm644 "${startdir}/usr/lib/systemd/system/plasmalogin.service.d/50-${pkgname}.conf" \
+                 "${pkgdir}/usr/lib/systemd/system/plasmalogin.service.d/50-${pkgname}.conf"
+
+  install -Dm644 "${startdir}/usr/share/applications/${pkgname}.desktop" \
+                 "${pkgdir}/usr/share/applications/${pkgname}.desktop"
+
+  # The sudo package owns /etc/sudoers.d at 750, and -D would create it 755,
+  # which makes pacman warn about differing directory permissions.
+  install -dm750 "${pkgdir}/etc/sudoers.d"
+  install -m440 "${startdir}/etc/sudoers.d/${pkgname}" "${pkgdir}/etc/sudoers.d/${pkgname}"
+
+  install -Dm644 "${startdir}/README.md" "${pkgdir}/usr/share/doc/${pkgname}/README.md"
+}
