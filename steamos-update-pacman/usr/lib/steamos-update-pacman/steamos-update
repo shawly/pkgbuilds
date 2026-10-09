@@ -1,0 +1,119 @@
+#!/usr/bin/env bash
+# Backs the Software Update button in Steam's settings with pacman and the
+# system flatpak installation. Steam runs it as root through pkexec, as:
+#
+#   --supports-duplicate-detection          exit 0, do nothing
+#   [--enable-duplicate-detection] check    print "Update available: ..." and
+#                                           exit 0, or exit 7 when up to date
+#   [--enable-duplicate-detection]          update, printing "NN%" lines
+#
+# Steam parses stdout, so only the check line and the percentages go there.
+# Everything else goes to the journal: journalctl -t steamos-update-pacman
+set -uo pipefail
+export LC_ALL=C
+
+TAG=steamos-update-pacman
+UP_TO_DATE=7
+
+action=update
+for arg; do
+    case $arg in
+        --supports-duplicate-detection) exit 0 ;;
+        check) action=check ;;
+    esac
+done
+
+# Carried over from the gamescope-session-cachyos stub this replaces.
+if [[ -f /etc/handheld-first-boot ]]; then
+    rm -f /etc/handheld-first-boot
+    systemctl restart graphical.target
+fi
+
+exec 2> >(logger -t "$TAG")
+
+log() { echo "$*" >&2; }
+fail() { log "$1"; exit 1; }
+
+last=-1
+progress() {
+    (( $1 > last )) || return 0
+    last=$1
+    echo "$1%"
+}
+
+has_flatpak() {
+    command -v flatpak >/dev/null && [[ -n $(flatpak remotes --system --columns=name) ]]
+}
+
+count() { grep -c . <<<"$1" || true; }
+
+check() {
+    local out rc pkgs=0 flatpaks=0
+    # checkupdates syncs into a scratch copy of the database, so a check never
+    # leaves the real one newer than the installed packages.
+    out=$(checkupdates); rc=$?
+    case $rc in
+        0) pkgs=$(count "$out") ;;
+        2) ;;
+        *) fail "checkupdates failed with status $rc" ;;
+    esac
+    if has_flatpak; then
+        out=$(flatpak remote-ls --updates --system --columns=application) \
+            || fail "flatpak remote-ls failed"
+        flatpaks=$(count "$out")
+    fi
+    (( pkgs + flatpaks )) || exit $UP_TO_DATE
+    echo "Update available: $pkgs packages, $flatpaks flatpaks"
+}
+
+update() {
+    local -a files caches
+    local total line pid ready f c i=0
+
+    [[ -e /var/lib/pacman/db.lck ]] && fail "the pacman database is locked"
+
+    progress 0
+    pacman -Sy --noconfirm >&2 || fail "pacman -Sy failed"
+
+    mapfile -t files < <(pacman -Sup --print-format '%f' | grep '\.pkg\.tar')
+    total=${#files[@]}
+
+    if (( total )); then
+        # Downloading runs on its own so the cache can be watched for finished
+        # packages, which is the only progress pacman reports without a tty.
+        mapfile -t caches < <(pacman-conf CacheDir)
+        pacman -Suw --noconfirm >&2 &
+        pid=$!
+        while kill -0 "$pid" 2>/dev/null; do
+            ready=0
+            for f in "${files[@]}"; do
+                for c in "${caches[@]}"; do
+                    [[ -e $c/$f ]] && { (( ready++ )); break; }
+                done
+            done
+            progress $(( 5 + 40 * ready / total ))
+            sleep 2
+        done
+        wait "$pid" || fail "pacman -Suw failed"
+        progress 45
+
+        # Without a tty pacman prints one "upgrading foo..." line per package.
+        stdbuf -oL pacman -Su --noconfirm 2>&1 | while IFS= read -r line; do
+            log "$line"
+            case $line in
+                installing\ *|upgrading\ *|reinstalling\ *|downgrading\ *)
+                    (( i++ ))
+                    progress $(( 45 + 44 * (i < total ? i : total) / total )) ;;
+            esac
+        done
+        (( PIPESTATUS[0] == 0 )) || fail "pacman -Su failed"
+    fi
+
+    progress 90
+    if has_flatpak; then
+        flatpak update --system --noninteractive -y >&2 || fail "flatpak update failed"
+    fi
+    progress 100
+}
+
+"$action"

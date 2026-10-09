@@ -1,0 +1,3 @@
+#!/bin/sh
+# Copied over /usr/bin/holo-update by steamos-update-pacman's pacman hook.
+exec /usr/lib/steamos-update-pacman/steamos-update "$@"

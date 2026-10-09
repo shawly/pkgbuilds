@@ -1,0 +1,11 @@
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Path
+Target = usr/bin/holo-update
+Target = usr/lib/steamos-update-pacman/holo-update
+
+[Action]
+Description = Pointing Steam's Software Update at pacman...
+When = PostTransaction
+Exec = /usr/lib/steamos-update-pacman/divert install

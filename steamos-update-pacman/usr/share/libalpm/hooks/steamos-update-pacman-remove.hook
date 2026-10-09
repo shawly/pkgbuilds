@@ -1,0 +1,9 @@
+[Trigger]
+Operation = Remove
+Type = Path
+Target = usr/lib/steamos-update-pacman/holo-update
+
+[Action]
+Description = Restoring the holo-update stub...
+When = PreTransaction
+Exec = /usr/lib/steamos-update-pacman/divert remove

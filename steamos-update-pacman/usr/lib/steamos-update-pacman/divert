@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Puts the shim over gamescope-session-cachyos's /usr/bin/holo-update stub, or
+# puts the stub back. Run by the package's pacman hooks.
+set -euo pipefail
+
+TARGET=/usr/bin/holo-update
+SHIM=/usr/lib/steamos-update-pacman/holo-update
+SAVED=/var/lib/steamos-update-pacman/holo-update.orig
+
+case ${1:-} in
+    install)
+        # Without gamescope-session-cachyos nothing calls holo-update.
+        [[ -e $TARGET ]] || exit 0
+        cmp -s "$SHIM" "$TARGET" && exit 0
+        # Saved on every replacement, so the stub restored on removal is the
+        # one from the gamescope-session-cachyos version currently installed.
+        mkdir -p "${SAVED%/*}"
+        cp -a "$TARGET" "$SAVED"
+        install -m755 "$SHIM" "$TARGET"
+        ;;
+    remove)
+        if [[ -e $SAVED && -e $TARGET ]]; then
+            install -m755 "$SAVED" "$TARGET"
+        fi
+        rm -rf "${SAVED%/*}"
+        ;;
+    *)
+        echo "usage: ${0##*/} install|remove" >&2
+        exit 1
+        ;;
+esac

@@ -1,0 +1,29 @@
+# Contributor: shawly
+pkgname=steamos-update-pacman
+pkgver=1.0.0
+pkgrel=1
+pkgdesc="Runs pacman and flatpak updates from the Software Update button in Steam's game mode"
+arch=('any')
+url="https://github.com/shawly/pkgbuilds"
+license=('ISC')
+depends=('bash' 'pacman-contrib' 'gamescope-session-cachyos' 'jupiter-hw-support')
+optdepends=('flatpak: update the system flatpak installation too')
+
+# No source=(): the payload is the usr/ tree next to this PKGBUILD, laid out
+# exactly as it is installed. makepkg only ever looks for a local source entry
+# by its basename in the package directory, so a path with a directory
+# component in source=() cannot work.
+
+package() {
+  local f
+  for f in steamos-update holo-update divert; do
+    install -Dm755 "${startdir}/usr/lib/${pkgname}/${f}" "${pkgdir}/usr/lib/${pkgname}/${f}"
+  done
+
+  for f in install remove; do
+    install -Dm644 "${startdir}/usr/share/libalpm/hooks/${pkgname}-${f}.hook" \
+                   "${pkgdir}/usr/share/libalpm/hooks/${pkgname}-${f}.hook"
+  done
+
+  install -Dm644 "${startdir}/README.md" "${pkgdir}/usr/share/doc/${pkgname}/README.md"
+}
