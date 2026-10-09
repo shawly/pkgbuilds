@@ -5,12 +5,15 @@
 #   gamescope-tvsession                       show mode, decision and screens
 #   gamescope-tvsession apply                 write the config fragment (root)
 #   gamescope-tvsession auto|desktop|gamescope [--now]
+#   gamescope-tvsession now desktop|gamescope  one session only, mode untouched
 #   gamescope-tvsession menu                  graphical mode picker
 #   gamescope-tvsession switch                go to Big Picture now
 set -uo pipefail
 
 CONF=/etc/gamescope-tvsession.conf
 MODE_FILE=/var/lib/gamescope-tvsession/mode
+# Lives on tmpfs, so a one-shot request can never outlast a reboot.
+ONCE_FILE=/run/gamescope-tvsession/once
 FRAGMENT=/etc/plasmalogin.conf.d/zzz-gamescope-tvsession.conf
 TITLE="Game Mode"
 
@@ -105,13 +108,21 @@ case ${1:-status} in
         printf 'mode:    %s\n' "$current"
         printf 'session: %s\n' "$(decide "$current" "$list")"
         printf 'screens: %s\n' "$(cut -f1 <<<"$list" | paste -sd, -)"
+        [[ -r $ONCE_FILE ]] && printf 'once:    %s\n' "$(tr -d '[:space:]' < "$ONCE_FILE")"
         ;;
 
     apply)
         (( EUID == 0 )) || die "must run as root"
         list=$(attached)
         current=$(mode)
-        target=$(decide "$current" "$list")
+        once=
+        [[ -r $ONCE_FILE ]] && once=$(tr -d '[:space:]' < "$ONCE_FILE")
+        # Consumed here, so the next login manager start decides from the mode again.
+        rm -f "$ONCE_FILE"
+        case $once in
+            gamescope|desktop) target=$once; current="$current, once" ;;
+            *) target=$(decide "$current" "$list") ;;
+        esac
         write_fragment "$target"
         echo "$self: mode=$current session=$target screens=[$(cut -f1 <<<"$list" | paste -sd, -)]"
         ;;
@@ -122,6 +133,17 @@ case ${1:-status} in
             "$0" apply
             systemctl restart plasmalogin
         fi
+        ;;
+
+    now)
+        (( EUID == 0 )) || die "must run as root"
+        case ${2:-} in
+            gamescope|desktop) ;;
+            *) die "usage: $self now desktop|gamescope" ;;
+        esac
+        mkdir -p "${ONCE_FILE%/*}"
+        printf '%s\n' "$2" > "$ONCE_FILE"
+        systemctl restart plasmalogin
         ;;
 
     menu)
@@ -144,11 +166,11 @@ case ${1:-status} in
             "Switch to Steam Big Picture now?
 
 This restarts the login manager and ends your desktop session immediately. Save your work first." || exit 0
-        out=$(sudo -n "$SELF" gamescope --now 2>&1) \
+        out=$(sudo -n "$SELF" now gamescope 2>&1) \
             || kdialog --title "$TITLE" --error "$out"
         ;;
 
     *)
-        die "unknown command '$1'; try: status, apply, auto, desktop, gamescope, menu, switch"
+        die "unknown command '$1'; try: status, apply, auto, desktop, gamescope, now, menu, switch"
         ;;
 esac

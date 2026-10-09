@@ -1,7 +1,7 @@
 # Contributor: shawly
 pkgname=gamescope-tvsession
 pkgver=1.0.0
-pkgrel=1
+pkgrel=2
 pkgdesc="Logs into Steam Big Picture when the TV is attached, the Plasma desktop otherwise"
 arch=('any')
 url="https://github.com/shawly/pkgbuilds"

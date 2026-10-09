@@ -21,15 +21,19 @@ in Big Picture. Pull the cable, or pin the mode to `desktop` while it stays in.
 ## Use
 
 Start menu, "Game Mode", opens a mode picker. Its right-click action switches to
-Big Picture immediately. From a shell:
+Big Picture immediately, for that one session only. From a shell:
 
     gamescope-tvsession                            mode, decision and screens
-    sudo gamescope-tvsession gamescope --now       go to Big Picture now
-    sudo gamescope-tvsession desktop --now         go back to the desktop now
+    sudo gamescope-tvsession now gamescope         Big Picture now, mode untouched
+    sudo gamescope-tvsession now desktop           desktop now, mode untouched
+    sudo gamescope-tvsession gamescope --now       pin Big Picture and go there
     sudo gamescope-tvsession auto                  back to display detection
 
-`--now` restarts the login manager, which ends the running session. The sudo
-rule for `%wheel` is what lets the menu entry do that without a password.
+`now` and `--now` restart the login manager, which ends the running session.
+`now` leaves its request in `/run/gamescope-tvsession/once`, which the next
+`apply` consumes, so the following boot decides from the mode again. A mode set
+with `gamescope` stays until changed, and every boot lands in Big Picture. The
+sudo rule for `%wheel` is what lets the menu entry do either without a password.
 
 Leaving Big Picture needs nothing from this package: Steam's own "Switch to
 Desktop" ends the session, and the greeter comes back with the desktop already
@@ -48,6 +52,7 @@ behind is ambiguous:
 | `/usr/lib/systemd/system/plasmalogin.service.d/50-gamescope-tvsession.conf` | the hook |
 | `/usr/share/applications/gamescope-tvsession.desktop`         | menu entry        |
 | `/var/lib/gamescope-tvsession/mode`                           | state             |
+| `/run/gamescope-tvsession/once`                               | one-shot request  |
 | `/etc/plasmalogin.conf.d/zzz-gamescope-tvsession.conf`        | generated         |
 
 ## How it sits on Plasma Login Manager
