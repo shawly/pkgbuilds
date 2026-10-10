@@ -1,0 +1,15 @@
+pkgbase = gamescope-tvsession
+	pkgdesc = Logs into Steam Big Picture when the TV is attached, the Plasma desktop otherwise
+	pkgver = 1.0.0
+	pkgrel = 2
+	url = https://github.com/shawly/pkgbuilds
+	install = gamescope-tvsession.install
+	arch = any
+	license = ISC
+	depends = plasma-login-manager
+	depends = kdialog
+	optdepends = gamescope-session-cachyos: the Steam Big Picture session itself
+	backup = etc/gamescope-tvsession.conf
+	backup = etc/sudoers.d/gamescope-tvsession
+
+pkgname = gamescope-tvsession

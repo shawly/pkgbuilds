@@ -16,3 +16,4 @@ current_repo.db.tar.gz
 *.src.tar.gz
 */pkg/
 */src/
+*.zip
