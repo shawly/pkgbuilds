@@ -6,8 +6,12 @@ pkgdesc="Runs pacman and flatpak updates from the Software Update button in Stea
 arch=('any')
 url="https://github.com/shawly/pkgbuilds"
 license=('ISC')
-depends=('bash' 'pacman-contrib' 'gamescope-session-cachyos' 'jupiter-hw-support')
-optdepends=('flatpak: update the system flatpak installation too')
+depends=('bash' 'pacman-contrib')
+# Both come from the CachyOS repositories, which the build container lacks.
+# Without them nothing calls the update script.
+optdepends=('gamescope-session-cachyos: ships the holo-update stub this replaces'
+            'jupiter-hw-support: the pkexec helper Steam calls'
+            'flatpak: update the system flatpak installation too')
 
 # No source=(): the payload is the usr/ tree next to this PKGBUILD, laid out
 # exactly as it is installed. makepkg only ever looks for a local source entry
