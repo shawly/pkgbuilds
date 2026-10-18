@@ -65,7 +65,7 @@ jobs:
       # up in the result marker rather than as a buried log warning.
       - name: Download prior-level build results
         continue-on-error: true
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: result-*
           merge-multiple: true
@@ -167,7 +167,7 @@ jobs:
 
       - name: Hand ${{ matrix.package }} to the sign job
         if: steps.skip_check.outputs.skip != 'true' && steps.build.outcome == 'success'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: pkg-l${{ inputs.level }}-${{ matrix.package }}
           path: ${{ matrix.package }}/*.pkg.tar.zst
@@ -196,7 +196,7 @@ jobs:
 
       - name: Upload build result marker
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: result-l${{ inputs.level }}-${{ matrix.package }}
           path: .github/security/results/result-${{ matrix.package }}.json
@@ -244,7 +244,7 @@ jobs:
       - name: Download the freshly built package
         id: new
         continue-on-error: true
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: pkg-l${{ inputs.level }}-${{ matrix.package }}
           path: dist-new
@@ -302,7 +302,7 @@ jobs:
 
       - name: Upload inspect verdict
         if: always() && steps.new.outcome == 'success'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: inspect-l${{ inputs.level }}-${{ matrix.package }}
           path: .github/security/verdicts/inspect-${{ matrix.package }}.json
@@ -325,7 +325,7 @@ jobs:
 
       - name: Collect built packages
         continue-on-error: true
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: pkg-l${{ inputs.level }}-*
           merge-multiple: true
@@ -333,7 +333,7 @@ jobs:
 
       - name: Collect Gate 3 verdicts
         continue-on-error: true
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: inspect-l${{ inputs.level }}-*
           merge-multiple: true
