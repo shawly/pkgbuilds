@@ -12,9 +12,10 @@ sha256sums=(SKIP)
 depends=()
 
 pkgver() {
-  local created
-  created=$(gpg --show-keys --with-colons "$startdir/public.gpg" | awk -F: '$1 == "pub" {print $6; exit}')
-  date -d "@$created" +%Y%m%d%H%M%S
+  # Version by expiry so keyupdate.yml's extensions actually ship to clients
+  local stamp
+  stamp=$(gpg --show-keys --with-colons "$startdir/public.gpg" | awk -F: '$1 == "pub" {print ($7 != "" ? $7 : $6); exit}')
+  date -d "@$stamp" +%Y%m%d%H%M%S
 }
 
 package() {
