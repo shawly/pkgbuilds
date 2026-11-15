@@ -28,3 +28,15 @@
 [submodule "kodi-git"]
 	path = kodi-git
 	url = https://aur.archlinux.org/kodi-git.git
+[submodule "flexbv-free-bin"]
+	path = flexbv-free-bin
+	url = https://aur.archlinux.org/flexbv-free-bin.git
+[submodule "openscad-bosl2"]
+	path = openscad-bosl2
+	url = https://aur.archlinux.org/openscad-bosl2.git
+[submodule "webos-dev-manager-bin"]
+	path = webos-dev-manager-bin
+	url = https://aur.archlinux.org/webos-dev-manager-bin.git
+[submodule "byobu"]
+	path = byobu
+	url = https://aur.archlinux.org/byobu.git
