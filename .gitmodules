@@ -40,3 +40,24 @@
 [submodule "byobu"]
 	path = byobu
 	url = https://aur.archlinux.org/byobu.git
+[submodule "libconcord"]
+	path = libconcord
+	url = https://aur.archlinux.org/libconcord.git
+[submodule "python-libconcord"]
+	path = python-libconcord
+	url = https://aur.archlinux.org/python-libconcord.git
+[submodule "ludusavi-bin"]
+	path = ludusavi-bin
+	url = https://aur.archlinux.org/ludusavi-bin.git
+[submodule "mergerfs"]
+	path = mergerfs
+	url = https://aur.archlinux.org/mergerfs.git
+[submodule "r2modman-bin"]
+	path = r2modman-bin
+	url = https://aur.archlinux.org/r2modman-bin.git
+[submodule "splix"]
+	path = splix
+	url = https://aur.archlinux.org/splix.git
+[submodule "wootility"]
+	path = wootility
+	url = https://aur.archlinux.org/wootility.git
